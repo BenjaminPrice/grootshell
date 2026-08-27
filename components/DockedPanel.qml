@@ -63,6 +63,17 @@ Item {
 
     property int padding: Appearance.padding.lg
 
+    // A docked panel usually merges with one band — the one it grows from. But
+    // it can be flush against a PERPENDICULAR band as well: the toasts grow from
+    // the right border while their top edge also meets the bar.
+    //
+    // "start" is the top for a left/right panel and the left for a top/bottom
+    // one; "end" is the opposite. Setting these squares off the corners on that
+    // side and moves that side's fillet to the new junction, since the old notch
+    // no longer exists — the abutting band fills it.
+    property bool abutsStart: false
+    property bool abutsEnd: false
+
     // Depth of the band this merges into, and therefore how far it overlaps
     // that band and where the fillets sit. Defaults to the border, but not every
     // docked panel grows from the screen edge — the island grows from the bottom
@@ -147,6 +158,30 @@ Item {
             width: root.horizontal ? 0 : root.radius
         }
 
+        // Abutted sides are squared off too: a rounded corner against a band
+        // that is flush with it would leave a notch of wallpaper in the join.
+        Rectangle {
+            color: root.surface
+            visible: root.abutsStart
+            anchors.left: parent.left
+            anchors.right: root.horizontal ? undefined : parent.right
+            anchors.top: parent.top
+            anchors.bottom: root.horizontal ? parent.bottom : undefined
+            width: root.horizontal ? root.radius : 0
+            height: root.horizontal ? 0 : root.radius
+        }
+
+        Rectangle {
+            color: root.surface
+            visible: root.abutsEnd
+            anchors.right: parent.right
+            anchors.left: root.horizontal ? undefined : parent.left
+            anchors.bottom: parent.bottom
+            anchors.top: root.horizontal ? parent.top : undefined
+            width: root.horizontal ? root.radius : 0
+            height: root.horizontal ? 0 : root.radius
+        }
+
         // Full size at all times, pinned to the INWARD edge — the one that
         // moves. That is what makes the contents ride out with the panel
         // instead of being squashed into whatever height it currently has, which
@@ -164,56 +199,64 @@ Item {
 
     // --- Junction fillets ---------------------------------------------------
     //
-    // One in each notch beside the panel, at the frame's inner line.
+    // One per side. The corner named is the quarter-disc that gets REMOVED, not
+    // the corner the fillet occupies — those are opposites, and conflating them
+    // rotates every fillet by 180° and leaves the 90° step it was meant to
+    // smooth. The filled quadrant is always the one touching BOTH filled regions
+    // at that junction, so the removed one is diagonally opposite it.
     //
-    // The corner named is the quarter-disc that gets REMOVED, not the corner the
-    // fillet occupies — those are opposites, and conflating them rotates every
-    // fillet by 180° and leaves the 90° step it was meant to smooth. The filled
-    // quadrant is always the one touching BOTH the panel and the frame band, so
-    // the removed one is always diagonally opposite that.
-    //
-    // Bottom-docked, left notch: the panel is to the right and the frame is
-    // below, so the fill hugs bottom-right and the disc comes out of top-left.
+    // Each side has two cases. Normally the notch is between the panel and the
+    // band it grew from, out near the screen edge. When that side abuts a
+    // perpendicular band, that notch is filled by the band itself and the
+    // junction moves to the panel's inward corner instead.
 
-    // Horizontal edges: a fillet either side of the panel.
-    InverseCorner {
-        visible: root.horizontal && root.activeFillet > 0
-        size: root.activeFillet
-        color: root.surface
-        corner: root.edge === "bottom" ? "topLeft" : "bottomLeft"
+    function filletGeometry(atStart: bool): var {
+        const f = root.activeFillet;
+        const abuts = atStart ? root.abutsStart : root.abutsEnd;
 
-        x: -root.activeFillet
-        y: root.edge === "bottom" ? root.height - root.frameThickness - root.activeFillet : root.frameThickness
+        if (root.edge === "right") {
+            if (abuts)
+                return atStart ? { x: -f, y: 0, corner: "bottomLeft" } : { x: -f, y: root.height - f, corner: "topLeft" };
+            return atStart ? { x: root.width - root.frameThickness - f, y: -f, corner: "topLeft" } : { x: root.width - root.frameThickness - f, y: root.height, corner: "bottomLeft" };
+        }
+
+        if (root.edge === "left") {
+            if (abuts)
+                return atStart ? { x: root.width, y: 0, corner: "bottomRight" } : { x: root.width, y: root.height - f, corner: "topRight" };
+            return atStart ? { x: root.frameThickness, y: -f, corner: "topRight" } : { x: root.frameThickness, y: root.height, corner: "bottomRight" };
+        }
+
+        if (root.edge === "bottom") {
+            if (abuts)
+                return atStart ? { x: 0, y: -f, corner: "topRight" } : { x: root.width - f, y: -f, corner: "topLeft" };
+            return atStart ? { x: -f, y: root.height - root.frameThickness - f, corner: "topLeft" } : { x: root.width, y: root.height - root.frameThickness - f, corner: "topRight" };
+        }
+
+        // top
+        if (abuts)
+            return atStart ? { x: 0, y: root.height, corner: "bottomRight" } : { x: root.width - f, y: root.height, corner: "bottomLeft" };
+        return atStart ? { x: -f, y: root.frameThickness, corner: "bottomLeft" } : { x: root.width, y: root.frameThickness, corner: "bottomRight" };
     }
 
     InverseCorner {
-        visible: root.horizontal && root.activeFillet > 0
+        readonly property var geometry: root.filletGeometry(true)
+
+        visible: root.activeFillet > 0
         size: root.activeFillet
         color: root.surface
-        corner: root.edge === "bottom" ? "topRight" : "bottomRight"
-
-        x: root.width
-        y: root.edge === "bottom" ? root.height - root.frameThickness - root.activeFillet : root.frameThickness
-    }
-
-    // Vertical edges: a fillet above and below.
-    InverseCorner {
-        visible: !root.horizontal && root.activeFillet > 0
-        size: root.activeFillet
-        color: root.surface
-        corner: root.edge === "right" ? "topLeft" : "topRight"
-
-        y: -root.activeFillet
-        x: root.edge === "right" ? root.width - root.frameThickness - root.activeFillet : root.frameThickness
+        corner: geometry.corner
+        x: geometry.x
+        y: geometry.y
     }
 
     InverseCorner {
-        visible: !root.horizontal && root.activeFillet > 0
+        readonly property var geometry: root.filletGeometry(false)
+
+        visible: root.activeFillet > 0
         size: root.activeFillet
         color: root.surface
-        corner: root.edge === "right" ? "bottomLeft" : "bottomRight"
-
-        y: root.height
-        x: root.edge === "right" ? root.width - root.frameThickness - root.activeFillet : root.frameThickness
+        corner: geometry.corner
+        x: geometry.x
+        y: geometry.y
     }
 }

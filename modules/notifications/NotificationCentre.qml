@@ -22,6 +22,9 @@ DockedPanel {
 
     depth: Math.round(440 * Appearance.font.scale)
 
+    // Flush against the bar above, same as the toasts.
+    abutsStart: true
+
     // Full height below the bar. Computed from the same values shell.qml uses to
     // place it, rather than anchoring top and bottom — a DockedPanel sizes
     // itself from span and depth, so anchoring both edges would fight it.
