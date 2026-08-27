@@ -34,7 +34,7 @@ Item {
     }
 
     Connections {
-        target: Audio
+        target: Volume
         function onChanged(isMic: bool): void {
             root.micMode = isMic;
             root.showing = true;
@@ -75,9 +75,9 @@ Item {
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
-                    height: parent.height * (root.micMode ? Audio.micVolume : Audio.volume)
+                    height: parent.height * (root.micMode ? Volume.micVolume : Volume.volume)
                     radius: parent.radius
-                    color: (root.micMode ? Audio.micMuted : Audio.muted) ? Theme.textMuted : Theme.accent
+                    color: (root.micMode ? Volume.micMuted : Volume.muted) ? Theme.textMuted : Theme.accent
 
                     Behavior on height {
                         enabled: Appearance.anim.enabled
@@ -91,14 +91,14 @@ Item {
 
             Icon {
                 Layout.alignment: Qt.AlignHCenter
-                text: root.micMode ? (Audio.micMuted ? "mic_off" : "mic") : Audio.icon()
+                text: root.micMode ? (Volume.micMuted ? "mic_off" : "mic") : Volume.icon()
                 color: Theme.text
                 size: Appearance.font.size.lg
             }
 
             StyledText {
                 Layout.alignment: Qt.AlignHCenter
-                text: `${Math.round((root.micMode ? Audio.micVolume : Audio.volume) * 100)}`
+                text: `${Math.round((root.micMode ? Volume.micVolume : Volume.volume) * 100)}`
                 color: Theme.textSecondary
                 font.pixelSize: Appearance.font.size.xs
                 mono: true

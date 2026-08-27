@@ -5,6 +5,11 @@ import Quickshell.Io
 
 // Runtime state that has to survive a restart.
 //
+// Named Persist rather than State because `State` is a built-in QtQuick type —
+// the one used in `states: [ State { ... } ]`. A singleton file called State.qml
+// registers a second type under that name, and every file importing both QtQuick
+// and this module then has two, which fails at load.
+//
 // Deliberately NOT in shell.json. That file is the user's, and writing the
 // config adapter back would serialise every default in it — every colour, every
 // size, everything the shell has an opinion about — freezing them at whatever

@@ -206,8 +206,8 @@ Item {
                 }
 
                 Icon {
-                    text: Audio.icon()
-                    color: Audio.muted ? Theme.error : Theme.textSecondary
+                    text: Volume.icon()
+                    color: Volume.muted ? Theme.error : Theme.textSecondary
                     size: Appearance.font.size.lg
                 }
 

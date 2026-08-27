@@ -19,6 +19,11 @@ Each rule here exists because it shipped:
                         opacity, visible, ...) inside a component that derives
                         from one shadows the built-in.
 
+  builtin-name          A .qml file whose name matches a built-in QML type. The
+                        file registers a second type under that name, and any
+                        file importing both QtQuick and this module then has two.
+                        Shipped once, as State.qml against QtQuick's State.
+
 Run over the QML tree; exits non-zero on any finding.
 """
 
@@ -54,6 +59,23 @@ ITEM_PROPERTIES = frozenset(
 
 ITEM_DERIVED = r"(?:Item|Rectangle|MouseArea|Text|Image|Row|Column|Flow|Grid)"
 
+# Type names QtQuick / QtQml already define. A file of the same name shadows
+# them wherever both are imported, which is everywhere.
+BUILTIN_TYPES = frozenset(
+    {
+        "Item", "Rectangle", "Text", "TextInput", "TextEdit", "Image", "AnimatedImage",
+        "BorderImage", "MouseArea", "Flickable", "ListView", "GridView", "PathView",
+        "Repeater", "Loader", "Component", "Connections", "Binding", "Timer",
+        "State", "StateGroup", "Transition", "Behavior", "Animation", "NumberAnimation",
+        "ColorAnimation", "PropertyAnimation", "SequentialAnimation", "ParallelAnimation",
+        "Row", "Column", "Grid", "Flow", "Positioner", "Shortcut", "FontLoader",
+        "Gradient", "GradientStop", "Scale", "Rotation", "Translate", "Transform",
+        "Path", "Shape", "ShapePath", "Screen", "Window", "Drag", "DropArea",
+        "Accessible", "Qt", "Package", "Instantiator", "ObjectModel", "ListModel",
+        "ListElement", "SoundEffect", "Audio", "Video", "Canvas", "Context2D",
+    }
+)
+
 READONLY = re.compile(r"readonly\s+property\s+\w+\s+(\w+)")
 BEHAVIOR = re.compile(r"Behavior\s+on\s+([\w.]+)")
 DEEP_ALIAS = re.compile(r"property\s+alias\s+\w+\s*:\s*(\w+\.\w+\.\w+)")
@@ -68,6 +90,15 @@ def line_of(text: str, index: int) -> int:
 def audit(path: Path) -> list[tuple[int, str, str]]:
     text = path.read_text(encoding="utf-8")
     findings: list[tuple[int, str, str]] = []
+
+    if path.stem in BUILTIN_TYPES:
+        findings.append(
+            (
+                1,
+                "builtin-name",
+                f"'{path.stem}' is a built-in QML type; this file shadows it",
+            )
+        )
 
     readonly = {m.group(1) for m in READONLY.finditer(text)}
     for match in BEHAVIOR.finditer(text):

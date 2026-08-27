@@ -6,6 +6,10 @@ import Quickshell.Services.Pipewire
 
 // Default sink and source, and the OSD trigger.
 //
+// Named Volume rather than Audio because `Audio` is a QtMultimedia type. Nothing
+// here imports QtMultimedia today, so it worked — but a file named after a
+// built-in is a trap armed for whoever adds that import later.
+//
 // Note what is NOT here: keybinds do not call into this service to change the
 // volume. They run `wpctl` directly (see keybinds.nix in the nixos repo), and we
 // find out by watching PipeWire. That inversion is on purpose — volume keys
