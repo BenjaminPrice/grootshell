@@ -22,20 +22,24 @@ import qs.components
 // what you are pointing at, the filled label marks what is actually set. Without
 // that split, arrowing through the strip gives no way to find your way back.
 
-Panel {
+// Docked rather than floating: it is drawn in the frame colour, flush to the
+// bottom edge, with its junctions filleted so it reads as the border stretching
+// outward to make room for the strip. See components/DockedPanel.qml — the
+// notification surfaces will use the same thing.
+DockedPanel {
     id: root
 
     edge: "bottom"
     open: ShellState.wallpaper
-    radius: Appearance.rounding.large
+    padding: Appearance.padding.xl
 
     readonly property int tileHeight: Math.round(200 * Appearance.font.scale)
     readonly property int tileWidth: Math.round(tileHeight * 16 / 9)
 
-    // Nearly the full screen width, so the strip reads as a filmstrip rather
-    // than as a dialog that happens to contain images.
-    implicitWidth: Math.max(0, (parent?.width ?? 1920) - Config.border.thickness * 2 - Appearance.spacing.xl * 2)
-    implicitHeight: tileHeight + header.implicitHeight + Appearance.padding.xl * 2 + Appearance.spacing.md
+    // Inset from the screen edges by more than the frame, so the fillets have
+    // frame to curve into on both sides rather than running off the corner.
+    contentWidth: Math.max(0, (parent?.width ?? 1920) - Config.border.thickness * 2 - Appearance.spacing.xl * 4)
+    contentHeight: tileHeight + header.implicitHeight + Appearance.spacing.md + Appearance.padding.xl * 2
 
     property int selected: 0
 
