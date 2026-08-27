@@ -27,4 +27,25 @@ Singleton {
     function format(fmt: string): string {
         return Qt.formatDateTime(root.now, fmt);
     }
+
+    // "now", "5m", "3h", then a date. Reads `now` so it re-evaluates on every
+    // tick — a relative time that never updates is worse than an absolute one,
+    // because it looks live and is not.
+    function since(epochMs: real): string {
+        const elapsed = root.now.getTime() - epochMs;
+        if (!isFinite(elapsed) || elapsed < 0)
+            return "now";
+
+        const minutes = Math.floor(elapsed / 60000);
+        if (minutes < 1)
+            return "now";
+        if (minutes < 60)
+            return `${minutes}m`;
+
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24)
+            return `${hours}h`;
+
+        return Qt.formatDateTime(new Date(epochMs), "d MMM");
+    }
 }

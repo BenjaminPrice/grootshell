@@ -38,8 +38,8 @@ DockedPanel {
 
     // Inset from the screen edges by more than the frame, so the fillets have
     // frame to curve into on both sides rather than running off the corner.
-    contentWidth: Math.max(0, (parent?.width ?? 1920) - Config.border.thickness * 2 - Appearance.spacing.xl * 4)
-    contentHeight: tileHeight + header.implicitHeight + Appearance.spacing.md + Appearance.padding.xl * 2
+    span: Math.max(0, (parent?.width ?? 1920) - Config.border.thickness * 2 - Appearance.spacing.xl * 4)
+    depth: tileHeight + header.implicitHeight + Appearance.spacing.md + Appearance.padding.xl * 2
 
     property int selected: 0
 

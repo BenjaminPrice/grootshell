@@ -52,15 +52,22 @@ Singleton {
         onNotification: notif => {
             notif.tracked = true;
 
+            // Arrival time is recorded here because Notification carries none,
+            // and it cannot be attached to the object itself — it is a C++
+            // QObject. A model role is the only place it can live.
+            const now = Date.now();
+
             allModel.insert(0, {
-                notification: notif
+                notification: notif,
+                time: now
             });
 
             if (root.doNotDisturb)
                 return;
 
             popupModel.insert(0, {
-                notification: notif
+                notification: notif,
+                time: now
             });
 
             // Oldest first, so a burst does not push the newest off screen.

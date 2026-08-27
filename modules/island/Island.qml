@@ -57,10 +57,10 @@ DockedPanel {
     // own depth on open and close, and a Behavior on the resulting size would
     // animate an animating value — which reads as lag, not as easing. This is a
     // separate motion (switching tabs) and gets its own.
-    contentWidth: Math.round(size.w * Appearance.font.scale)
-    contentHeight: Math.round(size.h * Appearance.font.scale)
+    span: Math.round(size.w * Appearance.font.scale)
+    depth: Math.round(size.h * Appearance.font.scale)
 
-    Behavior on contentWidth {
+    Behavior on span {
         enabled: Appearance.anim.enabled
         NumberAnimation {
             duration: Appearance.anim.normal
@@ -69,7 +69,7 @@ DockedPanel {
         }
     }
 
-    Behavior on contentHeight {
+    Behavior on depth {
         enabled: Appearance.anim.enabled
         NumberAnimation {
             duration: Appearance.anim.normal

@@ -199,12 +199,13 @@ ShellRoot {
                         anchors.bottom: parent.bottom
                     }
 
+                    // Top only. A DockedPanel sizes itself from span and depth,
+                    // so anchoring the bottom as well would fight it.
                     NotificationCentre {
                         id: notificationCentre
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.topMargin: scope.barZone
-                        anchors.bottom: parent.bottom
                     }
 
                     Toasts {

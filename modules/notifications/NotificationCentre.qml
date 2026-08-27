@@ -4,27 +4,50 @@ import qs.config
 import qs.services
 import qs.components
 
-// The full notification list, docked to the right edge under the bar.
+// The full notification list, extruded from the right border below the bar.
+//
+// Same treatment as the toasts, which is the point — the transient version and
+// the permanent one should look like one object in two states, not two designs
+// that happen to show the same text.
+//
+// Cards here are expandable. This is where a notification goes to be read
+// properly rather than glanced at, so the whole body and any actions the sender
+// offered are reachable.
 
-Panel {
+DockedPanel {
     id: root
 
     edge: "right"
     open: ShellState.notifications
-    implicitWidth: 400
-    radius: Appearance.rounding.large
+
+    depth: Math.round(440 * Appearance.font.scale)
+
+    // Full height below the bar. Computed from the same values shell.qml uses to
+    // place it, rather than anchoring top and bottom — a DockedPanel sizes
+    // itself from span and depth, so anchoring both edges would fight it.
+    readonly property int barZone: Config.bar.height + Config.border.thickness
+    span: Math.max(0, (parent?.height ?? 1080) - barZone - Config.border.thickness)
 
     ColumnLayout {
         anchors.fill: parent
         spacing: Appearance.spacing.md
 
+        // --- Header ---------------------------------------------------------
         RowLayout {
             Layout.fillWidth: true
+            spacing: Appearance.spacing.sm
 
             StyledText {
                 text: "Notifications"
                 font.pixelSize: Appearance.font.size.lg
                 color: Theme.text
+            }
+
+            StyledText {
+                text: Notifs.count > 0 ? `${Notifs.count}` : ""
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
+                mono: true
             }
 
             Item {
@@ -81,79 +104,14 @@ Panel {
             spacing: Appearance.spacing.sm
             model: Notifs.all
 
-            delegate: Rectangle {
-                id: entry
+            delegate: NotificationCard {
                 required property var notification
-                required property int index
+                required property real time
 
                 width: ListView.view.width
-                implicitHeight: entryBody.implicitHeight + Appearance.padding.md * 2
-                radius: Appearance.rounding.normal
-                color: hover.containsMouse ? Theme.surfaceContainerHigh : Theme.surfaceContainer
+                expandable: true
 
-                Behavior on color {
-                    enabled: Appearance.anim.enabled
-                    ColorAnimation {
-                        duration: Appearance.anim.fast
-                    }
-                }
-
-                ColumnLayout {
-                    id: entryBody
-                    anchors.fill: parent
-                    anchors.margins: Appearance.padding.md
-                    spacing: 2
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        StyledText {
-                            Layout.fillWidth: true
-                            text: entry.notification?.summary ?? ""
-                            color: Theme.text
-                            font.pixelSize: Appearance.font.size.sm
-                        }
-
-                        Icon {
-                            text: "close"
-                            color: hover.containsMouse ? Theme.textSecondary : "transparent"
-                            size: Appearance.font.size.sm
-
-                            MouseArea {
-                                anchors.fill: parent
-                                anchors.margins: -4
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: Notifs.dismiss(entry.notification)
-                            }
-                        }
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: entry.notification?.body ?? ""
-                        color: Theme.textSecondary
-                        font.pixelSize: Appearance.font.size.xs
-                        wrapMode: Text.WordWrap
-                        visible: text !== ""
-                    }
-
-                    StyledText {
-                        text: entry.notification?.appName ?? ""
-                        color: Theme.textMuted
-                        font.pixelSize: Appearance.font.size.xs
-                        visible: text !== ""
-                    }
-                }
-
-                MouseArea {
-                    id: hover
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    // Deliberately not click-to-dismiss: the close affordance
-                    // above is explicit, and a whole-row click here would make
-                    // reading a long notification a way to lose it.
-                    acceptedButtons: Qt.NoButton
-                }
+                onDiscarded: Notifs.dismiss(notification)
             }
         }
     }
@@ -167,11 +125,18 @@ Panel {
 
         signal activated
 
-        implicitWidth: 30
-        implicitHeight: 30
+        implicitWidth: Appearance.font.size.xl
+        implicitHeight: implicitWidth
         radius: width / 2
         color: active ? Theme.accentContainer : actionHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
         opacity: interactive ? 1 : 0.35
+
+        Behavior on color {
+            enabled: Appearance.anim.enabled
+            ColorAnimation {
+                duration: Appearance.anim.fast
+            }
+        }
 
         Icon {
             anchors.centerIn: parent

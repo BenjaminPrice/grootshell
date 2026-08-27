@@ -47,10 +47,12 @@ Item {
     property string edge: "bottom"
     property bool open: false
 
-    // contentWidth runs ALONG the docked edge; contentHeight is the depth away
-    // from it. Naming is by the horizontal case and holds for the vertical one.
-    property int contentWidth: 400
-    property int contentHeight: 300
+    // `span` runs ALONG the docked edge; `depth` is the distance away from it.
+    // Named that way rather than width/height because for a left- or
+    // right-docked panel the width IS the depth, and a property called
+    // span that means vertical extent is a mistake waiting to be made.
+    property int span: 400
+    property int depth: 300
 
     property int radius: Appearance.rounding.large
     property color surface: Theme.frame
@@ -85,14 +87,14 @@ Item {
         }
     }
 
-    readonly property int extension: Math.round(contentHeight * progress)
+    readonly property int extension: Math.round(depth * progress)
 
     // Hidden only once fully retracted, so the closing animation runs to the end
     // instead of the panel vanishing the instant `open` goes false.
     visible: extension > 0
 
-    implicitWidth: horizontal ? contentWidth : frameThickness + extension
-    implicitHeight: horizontal ? frameThickness + extension : contentWidth
+    implicitWidth: horizontal ? span : frameThickness + extension
+    implicitHeight: horizontal ? frameThickness + extension : span
 
     // Nothing protrudes at rest, so there is nothing to fillet.
     readonly property int activeFillet: Math.min(fillet, extension)
@@ -148,8 +150,8 @@ Item {
         Item {
             id: inner
 
-            width: root.horizontal ? clipper.width - root.padding * 2 : root.contentHeight - root.padding * 2
-            height: root.horizontal ? root.contentHeight - root.padding * 2 : clipper.height - root.padding * 2
+            width: root.horizontal ? clipper.width - root.padding * 2 : root.depth - root.padding * 2
+            height: root.horizontal ? root.depth - root.padding * 2 : clipper.height - root.padding * 2
 
             x: root.edge === "right" ? root.padding : root.horizontal ? root.padding : clipper.width - width - root.padding
             y: root.edge === "bottom" ? root.padding : root.horizontal ? clipper.height - height - root.padding : root.padding
