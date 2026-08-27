@@ -55,8 +55,18 @@ Item {
         return out;
     }
 
+    // The Wayland app id first, the Hyprland IPC class second.
+    //
+    // lastIpcObject alone was empty here — quickshell creates a toplevel from the
+    // Wayland toplevel-management protocol and only fills the IPC object in on a
+    // later refresh, so reading it is a race this widget lost every time. appId
+    // comes straight off the protocol and is populated from the start.
     function classOf(toplevel): string {
-        return toplevel?.lastIpcObject?.class ?? toplevel?.lastIpcObject?.initialClass ?? "";
+        const wayland = toplevel?.wayland?.appId ?? "";
+        if (wayland)
+            return wayland;
+        const ipc = toplevel?.lastIpcObject;
+        return (ipc ? (ipc["class"] ?? ipc["initialClass"]) : "") ?? "";
     }
 
     // A window class is not an icon name — "org.mozilla.firefox" and "firefox"

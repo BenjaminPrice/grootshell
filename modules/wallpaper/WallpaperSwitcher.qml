@@ -1,45 +1,83 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs.config
 import qs.services
 import qs.components
 
-// A horizontal strip of wallpapers along the bottom edge.
+// A wide strip of wallpaper previews across the bottom of the screen.
 //
-// Horizontal because wallpapers are landscape: a vertical list wastes most of
-// its width on letterboxing, where a strip shows six at a usable size.
+// Horizontal because wallpapers are landscape: a vertical list spends most of
+// its width on letterboxing, where a strip shows several at a size you can
+// actually judge. Big previews for the same reason — a 130px tile tells you the
+// rough colour of an image and nothing about whether you want to look at it all
+// day.
 //
-// Thumbnails come from the on-disk cache (see services/Wallpapers.qml) and fall
-// back to the full image when one has not been generated yet — so the switcher
-// is usable immediately on a fresh checkout and merely gets faster once the
-// cache fills.
+// Driven by the keyboard as much as the pointer. Left and right move the
+// selection, Enter applies it, Escape closes; clicking a tile applies it
+// directly. On a machine reached through a stream the keyboard is usually the
+// more reliable of the two.
+//
+// Selection and current are different things and look different: the ring marks
+// what you are pointing at, the filled label marks what is actually set. Without
+// that split, arrowing through the strip gives no way to find your way back.
 
 Panel {
     id: root
 
     edge: "bottom"
     open: ShellState.wallpaper
-    implicitWidth: Math.min(1200, strip.implicitWidth + Appearance.padding.lg * 2)
-    implicitHeight: Config.wallpaper.thumbnailHeight + header.implicitHeight + Appearance.padding.lg * 2 + Appearance.spacing.md
     radius: Appearance.rounding.large
 
-    onOpenChanged: if (open) list.positionViewAtIndex(root.currentIndex, ListView.Center)
+    readonly property int tileHeight: Math.round(200 * Appearance.font.scale)
+    readonly property int tileWidth: Math.round(tileHeight * 16 / 9)
 
-    readonly property int currentIndex: {
-        for (let i = 0; i < Wallpapers.model.count; i++)
-            if (Wallpapers.model.get(i, "filePath") === Wallpapers.current)
-                return i;
-        return 0;
+    // Nearly the full screen width, so the strip reads as a filmstrip rather
+    // than as a dialog that happens to contain images.
+    implicitWidth: Math.max(0, (parent?.width ?? 1920) - Config.border.thickness * 2 - Appearance.spacing.xl * 2)
+    implicitHeight: tileHeight + header.implicitHeight + Appearance.padding.xl * 2 + Appearance.spacing.md
+
+    property int selected: 0
+
+    onOpenChanged: {
+        if (!open)
+            return;
+        // Start from what is currently set, not from wherever the selection was
+        // left last time.
+        const i = Wallpapers.indexOf(Wallpapers.current);
+        selected = i >= 0 ? i : 0;
+        strip.positionViewAtIndex(selected, ListView.Center);
+        strip.forceActiveFocus();
+    }
+
+    function move(delta: int): void {
+        if (Wallpapers.count === 0)
+            return;
+        selected = Math.max(0, Math.min(Wallpapers.count - 1, selected + delta));
+        strip.positionViewAtIndex(selected, ListView.Contain);
+    }
+
+    function apply(): void {
+        const path = Wallpapers.at(selected);
+        if (path)
+            Wallpapers.set(path);
     }
 
     ColumnLayout {
-        id: strip
         anchors.fill: parent
         spacing: Appearance.spacing.md
 
         RowLayout {
             id: header
             Layout.fillWidth: true
+            spacing: Appearance.spacing.md
+
+            Icon {
+                text: "wallpaper"
+                color: Theme.accent
+                filled: true
+                size: Appearance.font.size.lg
+            }
 
             StyledText {
                 text: "Wallpaper"
@@ -47,29 +85,79 @@ Panel {
                 color: Theme.text
             }
 
-            Item {
+            StyledText {
+                // The filename of whatever is selected, so the strip is
+                // navigable by name as well as by eye.
                 Layout.fillWidth: true
+                text: {
+                    const path = Wallpapers.at(root.selected);
+                    return path ? path.slice(path.lastIndexOf("/") + 1) : "";
+                }
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
+                elide: Text.ElideMiddle
             }
 
             StyledText {
-                text: `${Wallpapers.count} in ${Config.wallpaper.directory.replace(Quickshell.env("HOME"), "~")}`
+                text: Wallpapers.count > 0 ? `${root.selected + 1} / ${Wallpapers.count}` : ""
                 color: Theme.textMuted
                 font.pixelSize: Appearance.font.size.xs
+                mono: true
             }
         }
 
+        // --- Empty ----------------------------------------------------------
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: Wallpapers.count === 0
+            spacing: Appearance.spacing.xs
+
+            Item {
+                Layout.fillHeight: true
+            }
+
+            StyledText {
+                Layout.alignment: Qt.AlignHCenter
+                text: "No wallpapers found"
+                color: Theme.textSecondary
+                font.pixelSize: Appearance.font.size.md
+            }
+
+            StyledText {
+                Layout.alignment: Qt.AlignHCenter
+                text: `Put images in ${Config.wallpaper.directory.replace(Quickshell.env("HOME"), "~")}`
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
+            }
+
+            Item {
+                Layout.fillHeight: true
+            }
+        }
+
+        // --- Strip ----------------------------------------------------------
         ListView {
-            id: list
+            id: strip
 
             Layout.fillWidth: true
-            Layout.preferredHeight: Config.wallpaper.thumbnailHeight
+            Layout.preferredHeight: root.tileHeight
+            visible: Wallpapers.count > 0
+
             orientation: ListView.Horizontal
-            spacing: Appearance.spacing.sm
+            spacing: Appearance.spacing.md
             clip: true
             model: Wallpapers.model
-            // Keep a screen's worth either side rendered so a fast scroll does
-            // not show empty frames.
+            // A screen's worth either side stays rendered, so a fast arrow-key
+            // sweep does not show empty frames.
             cacheBuffer: width * 2
+
+            focus: root.open
+            Keys.onLeftPressed: root.move(-1)
+            Keys.onRightPressed: root.move(1)
+            Keys.onReturnPressed: root.apply()
+            Keys.onEnterPressed: root.apply()
+            Keys.onSpacePressed: root.apply()
 
             delegate: Item {
                 id: tile
@@ -77,11 +165,11 @@ Panel {
                 required property int index
                 required property string filePath
 
-                readonly property bool selected: filePath === Wallpapers.current
+                readonly property bool isCurrent: filePath === Wallpapers.current
+                readonly property bool isSelected: index === root.selected
 
-                // 16:9, which is what the output is.
-                implicitWidth: Config.wallpaper.thumbnailHeight * 16 / 9
-                implicitHeight: Config.wallpaper.thumbnailHeight
+                implicitWidth: root.tileWidth
+                implicitHeight: root.tileHeight
 
                 Rectangle {
                     anchors.fill: parent
@@ -90,31 +178,58 @@ Panel {
                     clip: true
 
                     Image {
-                        id: thumb
                         anchors.fill: parent
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
-                        sourceSize.height: Config.wallpaper.thumbnailHeight * 2
-                        source: `file://${Wallpapers.thumbnail(tile.filePath)}`
-
-                        // No cached thumbnail yet — decode the original instead
-                        // rather than showing an empty box.
-                        onStatusChanged: if (status === Image.Error) source = `file://${tile.filePath}`
+                        source: `file://${tile.filePath}`
+                        // Decoded at the size it is drawn, which is what the
+                        // thumbnail cache used to be for.
+                        sourceSize.height: root.tileHeight * 2
                     }
 
-                    // Selection reads as a ring rather than a tint, so it does
-                    // not misrepresent the colours of the image underneath.
+                    // Selection is a ring, not a tint — a tint would misrepresent
+                    // the colours of the image you are trying to judge.
                     Rectangle {
                         anchors.fill: parent
                         radius: parent.radius
                         color: "transparent"
-                        border.width: tile.selected ? 3 : hover.containsMouse ? 2 : 0
-                        border.color: tile.selected ? Theme.accent : Theme.outline
+                        border.width: tile.isSelected ? 3 : hover.containsMouse ? 2 : 0
+                        border.color: Theme.accent
 
                         Behavior on border.width {
                             enabled: Appearance.anim.enabled
                             NumberAnimation {
                                 duration: Appearance.anim.fast
+                            }
+                        }
+                    }
+
+                    // What is actually set, as distinct from what is selected.
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.margins: Appearance.spacing.sm
+                        visible: tile.isCurrent
+                        implicitWidth: currentRow.implicitWidth + Appearance.padding.md * 2
+                        implicitHeight: currentRow.implicitHeight + Appearance.padding.xs * 2
+                        radius: Appearance.rounding.full
+                        color: Theme.accentContainer
+
+                        RowLayout {
+                            id: currentRow
+                            anchors.centerIn: parent
+                            spacing: Appearance.spacing.xs
+
+                            Icon {
+                                text: "check"
+                                color: Theme.accent
+                                size: Appearance.font.size.xs
+                            }
+
+                            StyledText {
+                                text: "Current"
+                                color: Theme.accent
+                                font.pixelSize: Appearance.font.size.xs
                             }
                         }
                     }
@@ -125,6 +240,7 @@ Panel {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onEntered: root.selected = tile.index
                     onClicked: Wallpapers.set(tile.filePath)
                 }
             }
