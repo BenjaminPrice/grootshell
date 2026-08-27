@@ -32,6 +32,12 @@ Singleton {
     readonly property int count: allModel.count
     property bool doNotDisturb: false
 
+    // How many toasts the pointer is currently over. Expiry is held while this
+    // is non-zero, which is what makes action buttons on a transient toast
+    // usable at all — otherwise the thing you are reaching for times out from
+    // under the cursor. Incremented by NotificationCard.
+    property int hovering: 0
+
     ListModel {
         id: allModel
     }
@@ -88,7 +94,13 @@ Singleton {
     property Component expire: Component {
         Timer {
             required property var notif
-            running: true
+
+            // Stops while a toast is hovered and restarts from zero when the
+            // pointer leaves. Restarting rather than resuming is deliberate: you
+            // have just read it, so a full fresh window is more useful than
+            // whatever remained of the old one.
+            running: root.hovering === 0
+
             interval: notif.expireTimeout > 0 ? notif.expireTimeout : Config.notifications.expireTimeout
             onTriggered: {
                 root.dismissPopup(notif);

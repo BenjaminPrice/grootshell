@@ -36,6 +36,14 @@ Rectangle {
     signal dismissed
     signal discarded
 
+    // Holds expiry while the pointer is over this card. Balanced on destruction
+    // because a card can be removed mid-hover — by a drag, by an action, or by
+    // the centre being cleared — and an unbalanced increment would freeze every
+    // future notification on screen permanently.
+    readonly property bool hovered: hover.containsMouse
+    onHoveredChanged: Notifs.hovering += hovered ? 1 : -1
+    Component.onDestruction: if (hovered) Notifs.hovering -= 1
+
     implicitHeight: body.implicitHeight + Appearance.padding.md * 2
     radius: Appearance.rounding.normal
     color: hover.containsMouse ? Theme.surfaceContainerHigh : Theme.surfaceContainer

@@ -61,9 +61,11 @@ DockedPanel {
             delegate: NotificationCard {
                 Layout.fillWidth: true
 
-                // A toast is on a timer. A chevron it will vanish out from under
-                // belongs in the centre, where things stay put.
-                expandable: false
+                // Expandable, and therefore able to show its actions. That is
+                // only safe because hovering a toast holds its expiry — without
+                // that, a button on something counting down is a target that
+                // times out from under the pointer.
+                expandable: true
 
                 onDiscarded: Notifs.dismiss(notification)
             }
