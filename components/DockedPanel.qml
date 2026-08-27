@@ -61,7 +61,12 @@ Item {
 
     property int padding: Appearance.padding.lg
 
-    readonly property int frameThickness: Config.border.thickness
+    // Depth of the band this merges into, and therefore how far it overlaps
+    // that band and where the fillets sit. Defaults to the border, but not every
+    // docked panel grows from the screen edge — the island grows from the bottom
+    // of the bar, which is already frame-coloured, so it overlaps nothing and
+    // sets this to 0.
+    property int frameThickness: Config.border.thickness
     readonly property bool horizontal: edge === "bottom" || edge === "top"
 
     default property alias content: inner.data

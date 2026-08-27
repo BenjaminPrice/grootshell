@@ -22,12 +22,16 @@ import qs.components
 // fillWidth tab strip would have every button slide outward on every switch —
 // including the one you just clicked, out from under the pointer.
 
-Panel {
+// Docked to the bar rather than to the screen edge. frameThickness is 0 because
+// there is no border band to overlap here — the bar is already frame-coloured
+// and already occupies the top, so the island merges with the BAR's lower edge.
+// shell.qml anchors it exactly there.
+DockedPanel {
     id: root
 
     edge: "top"
     open: ShellState.island
-    radius: Appearance.rounding.large
+    frameThickness: 0
 
     // Sized per tab. Scaled by the font scale so the "sofa, not desk" knob moves
     // these too — a panel measured in pixels while its contents are measured in
@@ -49,10 +53,14 @@ Panel {
 
     readonly property var size: sizes[ShellState.islandTab] ?? sizes.dashboard
 
-    implicitWidth: Math.round(size.w * Appearance.font.scale)
-    implicitHeight: Math.round(size.h * Appearance.font.scale)
+    // Animated here rather than in DockedPanel: the panel already animates its
+    // own depth on open and close, and a Behavior on the resulting size would
+    // animate an animating value — which reads as lag, not as easing. This is a
+    // separate motion (switching tabs) and gets its own.
+    contentWidth: Math.round(size.w * Appearance.font.scale)
+    contentHeight: Math.round(size.h * Appearance.font.scale)
 
-    Behavior on implicitWidth {
+    Behavior on contentWidth {
         enabled: Appearance.anim.enabled
         NumberAnimation {
             duration: Appearance.anim.normal
@@ -61,7 +69,7 @@ Panel {
         }
     }
 
-    Behavior on implicitHeight {
+    Behavior on contentHeight {
         enabled: Appearance.anim.enabled
         NumberAnimation {
             duration: Appearance.anim.normal
