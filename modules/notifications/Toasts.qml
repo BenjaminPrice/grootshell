@@ -50,14 +50,15 @@ DockedPanel {
         Repeater {
             model: Notifs.popups
 
-            // `notification` and `time` are ListModel roles, so they arrive as
-            // delegate properties directly. Binding them from `modelData` was
-            // the bug that made every toast render blank — over a ListModel,
-            // modelData is the whole row rather than the role.
+            // NotificationCard already declares `notification` and `time` as
+            // required, and a view fills a delegate's required properties from
+            // the model roles of the same name — INCLUDING inherited ones.
+            //
+            // Redeclaring them here was the bug that left every card blank: the
+            // redeclaration creates a SECOND property on the delegate, the model
+            // fills that one, and the card's own bindings go on reading the base
+            // property nobody ever assigned.
             delegate: NotificationCard {
-                required property var notification
-                required property real time
-
                 Layout.fillWidth: true
 
                 // A toast is on a timer. A chevron it will vanish out from under

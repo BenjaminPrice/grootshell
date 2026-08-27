@@ -24,6 +24,12 @@ Each rule here exists because it shipped:
                         file importing both QtQuick and this module then has two.
                         Shipped once, as State.qml against QtQuick's State.
 
+  shadowed-required     A delegate redeclaring a `required property` its own base
+                        type already declares. The redeclaration is a SECOND
+                        property; the view fills that one and the base type's
+                        bindings keep reading the original, which nobody
+                        assigned. Renders an empty widget with no error.
+
 Run over the QML tree; exits non-zero on any finding.
 """
 
@@ -77,6 +83,8 @@ BUILTIN_TYPES = frozenset(
 )
 
 READONLY = re.compile(r"readonly\s+property\s+\w+\s+(\w+)")
+REQUIRED = re.compile(r"required\s+property\s+[\w.<>]+\s+(\w+)")
+DELEGATE = re.compile(r"delegate:\s*([A-Z]\w*)\s*\{")
 BEHAVIOR = re.compile(r"Behavior\s+on\s+([\w.]+)")
 DEEP_ALIAS = re.compile(r"property\s+alias\s+\w+\s*:\s*(\w+\.\w+\.\w+)")
 COMPONENT = re.compile(rf"component\s+\w+\s*:\s*{ITEM_DERIVED}\s*\{{")
@@ -87,9 +95,47 @@ def line_of(text: str, index: int) -> int:
     return text.count("\n", 0, index) + 1
 
 
-def audit(path: Path) -> list[tuple[int, str, str]]:
+def block_at(text: str, open_brace: int) -> str:
+    """Return the body of the brace block starting at `open_brace`."""
+    depth = 0
+    for i in range(open_brace, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[open_brace + 1 : i]
+    return text[open_brace + 1 :]
+
+
+def required_by_type(files: list[Path]) -> dict[str, set[str]]:
+    """Map each local component name to the required properties it declares."""
+    out: dict[str, set[str]] = {}
+    for path in files:
+        out[path.stem] = set(REQUIRED.findall(path.read_text(encoding="utf-8")))
+    return out
+
+
+def audit(path: Path, required: dict[str, set[str]] | None = None) -> list[tuple[int, str, str]]:
     text = path.read_text(encoding="utf-8")
     findings: list[tuple[int, str, str]] = []
+
+    for match in DELEGATE.finditer(text):
+        base = match.group(1)
+        inherited = (required or {}).get(base)
+        if not inherited:
+            continue
+        body = block_at(text, match.end() - 1)
+        for prop in REQUIRED.finditer(body):
+            if prop.group(1) in inherited:
+                findings.append(
+                    (
+                        line_of(text, match.end() + prop.start()),
+                        "shadowed-required",
+                        f"'{prop.group(1)}' is already required by {base}; "
+                        "redeclaring it shadows the property that type reads",
+                    )
+                )
 
     if path.stem in BUILTIN_TYPES:
         findings.append(
@@ -146,9 +192,11 @@ def main() -> int:
         print(f"qml-audit: no QML found under {root}", file=sys.stderr)
         return 1
 
+    required = required_by_type(files)
+
     total = 0
     for path in files:
-        for line, rule, message in audit(path):
+        for line, rule, message in audit(path, required):
             print(f"{path}:{line}: {rule}: {message}", file=sys.stderr)
             total += 1
 

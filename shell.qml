@@ -200,29 +200,24 @@ ShellRoot {
                     }
 
                     // Top only. A DockedPanel sizes itself from span and depth,
-                    // so anchoring the bottom as well would fight it. Same
-                    // clearance below the bar as the toasts, for the same reason.
+                    // so anchoring the bottom as well would fight it.
                     NotificationCentre {
                         id: notificationCentre
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.topMargin: scope.barZone + Appearance.rounding.large + Appearance.spacing.sm
+                        anchors.topMargin: scope.barZone
                     }
 
-                    // Clear of the bar, not flush against it. Both the bar and
-                    // a DockedPanel paint Theme.frame, so starting at exactly
-                    // barZone made the two contiguous and identically coloured —
-                    // one mass hanging off the bar rather than a panel extruding
-                    // from the right border. The top fillet reached a further
-                    // 22px INTO the bar, welding them together.
-                    //
-                    // Clearance has to exceed the fillet or the curve still
-                    // lands inside the bar.
+                    // Flush against the bar, deliberately. Both it and a
+                    // DockedPanel paint Theme.frame, so the two merge into one
+                    // surface — which is the caelestia look these are modelled
+                    // on, notifications hanging off the top border rather than
+                    // floating near it.
                     Toasts {
                         id: toasts
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.topMargin: scope.barZone + Appearance.rounding.large + Appearance.spacing.sm
+                        anchors.topMargin: scope.barZone
                     }
 
                     Osd {

@@ -25,10 +25,8 @@ DockedPanel {
     // Full height below the bar. Computed from the same values shell.qml uses to
     // place it, rather than anchoring top and bottom — a DockedPanel sizes
     // itself from span and depth, so anchoring both edges would fight it.
-    // Mirrors the clearance shell.qml anchors this with; without subtracting it
-    // too, the panel would run past the bottom border by exactly that much.
-    readonly property int topOffset: Config.bar.height + Config.border.thickness + Appearance.rounding.large + Appearance.spacing.sm
-    span: Math.max(0, (parent?.height ?? 1080) - topOffset - Config.border.thickness - Appearance.spacing.sm)
+    readonly property int barZone: Config.bar.height + Config.border.thickness
+    span: Math.max(0, (parent?.height ?? 1080) - barZone - Config.border.thickness)
 
     ColumnLayout {
         anchors.fill: parent
@@ -106,10 +104,10 @@ DockedPanel {
             spacing: Appearance.spacing.sm
             model: Notifs.all
 
+            // Required properties are inherited from NotificationCard and filled
+            // from the model roles; redeclaring them here would shadow the ones
+            // the card actually reads. See the note in Toasts.qml.
             delegate: NotificationCard {
-                required property var notification
-                required property real time
-
                 width: ListView.view.width
                 expandable: true
 
