@@ -22,6 +22,23 @@ import qs.services
 //
 // Only the inward corners are rounded; the two at the screen edge are square,
 // because they are not corners of anything — they are the middle of the frame.
+//
+// ## The animation
+//
+// It EXTRUDES. The panel's depth animates from nothing to full while the frame
+// stays exactly where it is, so the border appears to stretch outward and the
+// contents ride out on the moving edge, like a drawer.
+//
+// It deliberately does not fade or fly in. Both make it a separate object that
+// arrived from somewhere, which is the opposite of the thing the fillets exist
+// to sell — and a fade is worse still, because a half-transparent panel over a
+// wallpaper shows the border straight through the merge that is supposed to be
+// seamless.
+//
+// The fillets grow with it. At rest there is nothing protruding and therefore
+// nothing to fillet; at full extension they are full size. Holding them at full
+// size throughout would leave two nubs sticking out of the border before the
+// panel had emerged at all.
 
 Item {
     id: root
@@ -30,7 +47,8 @@ Item {
     property string edge: "bottom"
     property bool open: false
 
-    // The panel box itself, excluding the frame band it sits over.
+    // contentWidth runs ALONG the docked edge; contentHeight is the depth away
+    // from it. Naming is by the horizontal case and holds for the vertical one.
     property int contentWidth: 400
     property int contentHeight: 300
 
@@ -41,96 +59,96 @@ Item {
     // rounding keeps one curvature across the whole silhouette.
     property int fillet: radius
 
+    property int padding: Appearance.padding.lg
+
     readonly property int frameThickness: Config.border.thickness
     readonly property bool horizontal: edge === "bottom" || edge === "top"
 
     default property alias content: inner.data
-    property int padding: Appearance.padding.lg
 
-    // Overall size includes the frame band, since the panel extends through it
-    // to the screen edge.
-    implicitWidth: horizontal ? contentWidth : contentHeight + frameThickness
-    implicitHeight: horizontal ? contentHeight + frameThickness : contentWidth
+    // 0 = retracted flush into the frame, 1 = fully extended. Not readonly: a
+    // Behavior animates writes, and a read-only property is only ever
+    // re-evaluated, so attaching one to it is a load-time error.
+    property real progress: open ? 1 : 0
 
-    visible: open || hideDelay.running
-    opacity: open ? 1 : 0
+    Behavior on progress {
+        enabled: Appearance.anim.enabled
+        NumberAnimation {
+            duration: Appearance.anim.normal
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Appearance.anim.emphasised
+        }
+    }
+
+    readonly property int extension: Math.round(contentHeight * progress)
+
+    // Hidden only once fully retracted, so the closing animation runs to the end
+    // instead of the panel vanishing the instant `open` goes false.
+    visible: extension > 0
+
+    implicitWidth: horizontal ? contentWidth : frameThickness + extension
+    implicitHeight: horizontal ? frameThickness + extension : contentWidth
+
+    // Nothing protrudes at rest, so there is nothing to fillet.
+    readonly property int activeFillet: Math.min(fillet, extension)
 
     // Fillets sit outside the panel's own bounds, in the notch beside it.
     clip: false
 
-    property int slide: 28
-
-    transform: Translate {
-        x: root.open ? 0 : (root.edge === "left" ? -root.slide : root.edge === "right" ? root.slide : 0)
-        y: root.open ? 0 : (root.edge === "top" ? -root.slide : root.edge === "bottom" ? root.slide : 0)
-
-        Behavior on x {
-            enabled: Appearance.anim.enabled
-            NumberAnimation {
-                duration: Appearance.anim.normal
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Appearance.anim.emphasised
-            }
-        }
-        Behavior on y {
-            enabled: Appearance.anim.enabled
-            NumberAnimation {
-                duration: Appearance.anim.normal
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Appearance.anim.emphasised
-            }
-        }
-    }
-
-    Behavior on opacity {
-        enabled: Appearance.anim.enabled
-        NumberAnimation {
-            duration: Appearance.anim.fast
-        }
-    }
-
-    // Keeps the item alive just long enough for the closing animation. With
-    // animations off (game mode) there is nothing to wait for.
-    Timer {
-        id: hideDelay
-        interval: Appearance.anim.enabled ? Appearance.anim.normal : 0
-    }
-
-    onOpenChanged: if (!open && Appearance.anim.enabled) hideDelay.restart()
-
-    // --- The body -----------------------------------------------------------
+    // --- Body and content ---------------------------------------------------
     //
-    // Rounded on the inward side only. Qt rounds all four corners or none, so
-    // the two at the screen edge are squared off by a second rectangle covering
-    // the outer half — cheaper and more predictable than a hand-built path, and
-    // invisible because both are the same colour.
-    Rectangle {
-        id: body
+    // Clipped, so content that has not emerged yet is hidden rather than
+    // spilling over the wallpaper. The fillets are OUTSIDE this deliberately —
+    // they live in the notch beside the panel, which clipping would cut off.
+    Item {
+        id: clipper
+
         anchors.fill: parent
-        radius: root.radius
-        color: root.surface
-    }
+        clip: true
 
-    Rectangle {
-        color: root.surface
+        Rectangle {
+            anchors.fill: parent
+            radius: root.radius
+            color: root.surface
+        }
 
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: root.edge === "top" ? parent.top : undefined
-        anchors.bottom: root.edge === "bottom" ? parent.bottom : undefined
-        height: root.horizontal ? root.radius : 0
-        visible: root.horizontal
-    }
+        // Qt rounds all four corners or none, so the pair at the screen edge is
+        // squared off by a second rectangle over the outer strip. Cheaper and
+        // more predictable than a hand-built path, and invisible because both
+        // are the same colour.
+        Rectangle {
+            color: root.surface
+            visible: root.horizontal
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: root.edge === "top" ? parent.top : undefined
+            anchors.bottom: root.edge === "bottom" ? parent.bottom : undefined
+            height: root.horizontal ? root.radius : 0
+        }
 
-    Rectangle {
-        color: root.surface
+        Rectangle {
+            color: root.surface
+            visible: !root.horizontal
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.left: root.edge === "left" ? parent.left : undefined
+            anchors.right: root.edge === "right" ? parent.right : undefined
+            width: root.horizontal ? 0 : root.radius
+        }
 
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        anchors.left: root.edge === "left" ? parent.left : undefined
-        anchors.right: root.edge === "right" ? parent.right : undefined
-        width: root.horizontal ? 0 : root.radius
-        visible: !root.horizontal
+        // Full size at all times, pinned to the INWARD edge — the one that
+        // moves. That is what makes the contents ride out with the panel
+        // instead of being squashed into whatever height it currently has, which
+        // would reflow the layout on every animation frame.
+        Item {
+            id: inner
+
+            width: root.horizontal ? clipper.width - root.padding * 2 : root.contentHeight - root.padding * 2
+            height: root.horizontal ? root.contentHeight - root.padding * 2 : clipper.height - root.padding * 2
+
+            x: root.edge === "right" ? root.padding : root.horizontal ? root.padding : clipper.width - width - root.padding
+            y: root.edge === "bottom" ? root.padding : root.horizontal ? clipper.height - height - root.padding : root.padding
+        }
     }
 
     // --- Junction fillets ---------------------------------------------------
@@ -148,57 +166,43 @@ Item {
 
     // Horizontal edges: a fillet either side of the panel.
     InverseCorner {
-        visible: root.horizontal
-        size: root.fillet
+        visible: root.horizontal && root.activeFillet > 0
+        size: root.activeFillet
         color: root.surface
         corner: root.edge === "bottom" ? "topLeft" : "bottomLeft"
 
-        x: -root.fillet
-        y: root.edge === "bottom" ? root.height - root.frameThickness - root.fillet : root.frameThickness
+        x: -root.activeFillet
+        y: root.edge === "bottom" ? root.height - root.frameThickness - root.activeFillet : root.frameThickness
     }
 
     InverseCorner {
-        visible: root.horizontal
-        size: root.fillet
+        visible: root.horizontal && root.activeFillet > 0
+        size: root.activeFillet
         color: root.surface
         corner: root.edge === "bottom" ? "topRight" : "bottomRight"
 
         x: root.width
-        y: root.edge === "bottom" ? root.height - root.frameThickness - root.fillet : root.frameThickness
+        y: root.edge === "bottom" ? root.height - root.frameThickness - root.activeFillet : root.frameThickness
     }
 
     // Vertical edges: a fillet above and below.
     InverseCorner {
-        visible: !root.horizontal
-        size: root.fillet
+        visible: !root.horizontal && root.activeFillet > 0
+        size: root.activeFillet
         color: root.surface
         corner: root.edge === "right" ? "topLeft" : "topRight"
 
-        y: -root.fillet
-        x: root.edge === "right" ? root.width - root.frameThickness - root.fillet : root.frameThickness
+        y: -root.activeFillet
+        x: root.edge === "right" ? root.width - root.frameThickness - root.activeFillet : root.frameThickness
     }
 
     InverseCorner {
-        visible: !root.horizontal
-        size: root.fillet
+        visible: !root.horizontal && root.activeFillet > 0
+        size: root.activeFillet
         color: root.surface
         corner: root.edge === "right" ? "bottomLeft" : "bottomRight"
 
         y: root.height
-        x: root.edge === "right" ? root.width - root.frameThickness - root.fillet : root.frameThickness
-    }
-
-    // --- Content ------------------------------------------------------------
-    //
-    // Inset past the frame band on the docked side, so nothing is laid out in
-    // the strip that overlaps the border.
-    Item {
-        id: inner
-
-        anchors.fill: parent
-        anchors.leftMargin: root.padding + (root.edge === "left" ? root.frameThickness : 0)
-        anchors.rightMargin: root.padding + (root.edge === "right" ? root.frameThickness : 0)
-        anchors.topMargin: root.padding + (root.edge === "top" ? root.frameThickness : 0)
-        anchors.bottomMargin: root.padding + (root.edge === "bottom" ? root.frameThickness : 0)
+        x: root.edge === "right" ? root.width - root.frameThickness - root.activeFillet : root.frameThickness
     }
 }
