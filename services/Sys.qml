@@ -29,8 +29,9 @@ Singleton {
     property real cpu: 0        // percent, 0-100
     property real memory: 0     // percent used
     property real swap: 0       // percent used
-    property real disk: 0       // percent used on /
-    property real temperature: 0 // degrees C, 0 when unavailable
+    property real temperature: 0 // CPU package, degrees C, 0 when unavailable
+    property real gpu: 0        // percent busy
+    property real gpuTemperature: 0 // degrees C, 0 when unavailable
     property int uptime: 0      // seconds
 
     // --- Demand-driven polling ---------------------------------------------
@@ -87,7 +88,6 @@ Singleton {
 
             mem=$(awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} END{ if (t>0) printf "%d", (t-a)*100/t; else print 0 }' /proc/meminfo)
             swap=$(awk '/^SwapTotal:/{t=$2} /^SwapFree:/{f=$2} END{ if (t>0) printf "%d", (t-f)*100/t; else print 0 }' /proc/meminfo)
-            disk=$(df -P / | awk 'NR==2{gsub(/%/,"",$5); print $5}')
             up=$(awk '{printf "%d", $1}' /proc/uptime)
 
             # hwmon directly rather than the sensors binary: same data, no parse
@@ -104,20 +104,42 @@ Singleton {
               esac
             done
 
-            printf '%s %s %s %s %s %s\\n' "$cpu" "$mem" "$swap" "$disk" "$temp" "$up"
+            # Same amdgpu sysfs attributes the Prometheus exporter in this repo
+            # reads (scripts/amdgpu_exporter.py) — a stable kernel ABI rather
+            # than a parse of some tool's output.
+            #
+            # Note that touching these wakes a runtime-suspended card. That is
+            # why the whole service is subscribe-driven: this only runs while the
+            # performance tab is actually open, so an idle desktop never pokes
+            # the GPU awake to ask whether it is busy.
+            gpu=0
+            gputemp=0
+            for d in /sys/class/drm/card*/device; do
+              [ -r "$d/gpu_busy_percent" ] || continue
+              gpu=$(cat "$d/gpu_busy_percent" 2>/dev/null || echo 0)
+              for hw in "$d"/hwmon/hwmon*; do
+                v=$(cat "$hw/temp1_input" 2>/dev/null || echo 0)
+                [ "$v" -gt 0 ] && gputemp=$((v/1000))
+                break
+              done
+              break
+            done
+
+            printf '%s %s %s %s %s %s %s\\n' "$cpu" "$mem" "$swap" "$temp" "$gpu" "$gputemp" "$up"
         `]
 
         stdout: StdioCollector {
             onStreamFinished: {
                 const parts = text.trim().split(/\s+/).map(Number);
-                if (parts.length < 6 || parts.some(isNaN))
+                if (parts.length < 7 || parts.some(isNaN))
                     return;
                 root.cpu = parts[0];
                 root.memory = parts[1];
                 root.swap = parts[2];
-                root.disk = parts[3];
-                root.temperature = parts[4];
-                root.uptime = parts[5];
+                root.temperature = parts[3];
+                root.gpu = parts[4];
+                root.gpuTemperature = parts[5];
+                root.uptime = parts[6];
             }
         }
     }

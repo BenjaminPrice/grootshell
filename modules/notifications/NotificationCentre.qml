@@ -79,7 +79,7 @@ Panel {
             visible: Notifs.count > 0
             clip: true
             spacing: Appearance.spacing.sm
-            model: Notifs.list
+            model: Notifs.all
 
             delegate: Rectangle {
                 id: entry

@@ -20,7 +20,7 @@ Item {
 
     implicitWidth: 380 + inset
     implicitHeight: column.implicitHeight + Appearance.spacing.md
-    visible: !GameMode.enabled && Notifs.popups.length > 0 && !ShellState.notifications
+    visible: !GameMode.enabled && Notifs.popups.count > 0 && !ShellState.notifications
 
     ColumnLayout {
         id: column
@@ -34,9 +34,13 @@ Item {
         Repeater {
             model: Notifs.popups
 
+            // `notification` is a ListModel role, so it arrives as a delegate
+            // property directly. Binding it from `modelData` was the bug that
+            // made every toast render blank: over a ListModel, modelData is the
+            // whole ROW — { notification: ... } — not the notification, so every
+            // field read off it was undefined.
             delegate: Toast {
-                required property var modelData
-                notification: modelData
+                required property var notification
                 Layout.fillWidth: true
             }
         }

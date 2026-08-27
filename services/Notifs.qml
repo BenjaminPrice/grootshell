@@ -7,6 +7,16 @@ import qs.config
 
 // The notification server. Replaces mako, which groot used to run.
 //
+// TWO models, not one with a `popup` flag. That is not a style choice — a
+// ListModel notifies on count, and on nothing else. A `var` property computed by
+// walking a ListModel and filtering on a role re-evaluates when rows are added
+// or removed and never when a role changes, so flipping a `popup` flag updated
+// the data and left every binding on it stale. Toasts appeared and then stayed
+// forever, because the thing that was supposed to hide them changed a value
+// nothing was watching.
+//
+// Removing a row from `popups` changes its count, which every binding does see.
+//
 // `keepOnReload` matters more here than on a normal desktop: the dev loop
 // hot-reloads this shell constantly, and without it every save would drop the
 // notification list on the floor.
@@ -14,23 +24,20 @@ import qs.config
 Singleton {
     id: root
 
-    readonly property alias list: store
-    readonly property int count: store.count
+    // Everything received, newest first. The notification centre shows this.
+    readonly property alias all: allModel
+    // Currently on screen as a toast. A subset, and transient.
+    readonly property alias popups: popupModel
+
+    readonly property int count: allModel.count
     property bool doNotDisturb: false
 
-    // Popups are the transient toasts; the full list lives in the centre.
-    readonly property var popups: {
-        const out = [];
-        for (let i = 0; i < store.count && out.length < Config.notifications.maxVisible; i++) {
-            const n = store.get(i);
-            if (n.popup)
-                out.push(n);
-        }
-        return out;
+    ListModel {
+        id: allModel
     }
 
     ListModel {
-        id: store
+        id: popupModel
     }
 
     NotificationServer {
@@ -45,14 +52,24 @@ Singleton {
         onNotification: notif => {
             notif.tracked = true;
 
-            store.insert(0, {
-                notification: notif,
-                popup: !root.doNotDisturb
+            allModel.insert(0, {
+                notification: notif
             });
+
+            if (root.doNotDisturb)
+                return;
+
+            popupModel.insert(0, {
+                notification: notif
+            });
+
+            // Oldest first, so a burst does not push the newest off screen.
+            while (popupModel.count > Config.notifications.maxVisible)
+                popupModel.remove(popupModel.count - 1);
 
             // Urgency Critical means "do not silently expire" — a failing
             // service or a full disk should stay up until acknowledged.
-            if (notif.urgency !== NotificationUrgency.Critical && !root.doNotDisturb)
+            if (notif.urgency !== NotificationUrgency.Critical)
                 expire.createObject(root, {
                     notif: notif
                 });
@@ -73,9 +90,9 @@ Singleton {
         }
     }
 
-    function indexOf(notif): int {
-        for (let i = 0; i < store.count; i++)
-            if (store.get(i).notification === notif)
+    function indexIn(model, notif): int {
+        for (let i = 0; i < model.count; i++)
+            if (model.get(i).notification === notif)
                 return i;
         return -1;
     }
@@ -83,23 +100,30 @@ Singleton {
     // Hide the toast but keep it in the centre — dismissing a popup is "I saw
     // it", not "delete it".
     function dismissPopup(notif): void {
-        const i = indexOf(notif);
+        const i = indexIn(popupModel, notif);
         if (i >= 0)
-            store.setProperty(i, "popup", false);
+            popupModel.remove(i);
     }
 
     function dismiss(notif): void {
-        const i = indexOf(notif);
-        if (i < 0)
-            return;
-        store.remove(i);
+        dismissPopup(notif);
+
+        const i = indexIn(allModel, notif);
+        if (i >= 0)
+            allModel.remove(i);
+
         notif.dismiss();
     }
 
     function clear(): void {
-        while (store.count > 0) {
-            store.get(0).notification.dismiss();
-            store.remove(0);
+        popupModel.clear();
+        while (allModel.count > 0) {
+            allModel.get(0).notification.dismiss();
+            allModel.remove(0);
         }
     }
+
+    // Turning DND on should clear what is already on screen, otherwise it only
+    // applies to notifications that have not arrived yet.
+    onDoNotDisturbChanged: if (doNotDisturb) popupModel.clear()
 }

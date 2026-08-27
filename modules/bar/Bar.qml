@@ -61,61 +61,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Appearance.spacing.md
 
-            RowLayout {
-                spacing: Appearance.spacing.xs
-
-                Repeater {
-                    model: Config.bar.workspaces
-
-                    delegate: Item {
-                        id: pip
-                        required property int index
-
-                        readonly property int wsId: index + 1
-                        readonly property var ws: Hyprland.workspaces.values.find(w => w.id === pip.wsId) ?? null
-                        readonly property bool occupied: (ws?.lastIpcObject?.windows ?? 0) > 0
-                        readonly property bool active: Hyprland.focusedWorkspace?.id === pip.wsId
-
-                        implicitWidth: active ? 34 : 16
-                        implicitHeight: 16
-
-                        Behavior on implicitWidth {
-                            enabled: Appearance.anim.enabled
-                            NumberAnimation {
-                                duration: Appearance.anim.normal
-                                easing.type: Easing.BezierSpline
-                                easing.bezierCurve: Appearance.anim.emphasised
-                            }
-                        }
-
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: parent.implicitWidth
-                            height: 7
-                            radius: height / 2
-                            // Three states worth distinguishing: where you are,
-                            // where there is something to go back to, and empty.
-                            color: pip.active ? Theme.accent : pip.occupied ? Theme.outline : Theme.outlineVariant
-
-                            Behavior on color {
-                                enabled: Appearance.anim.enabled
-                                ColorAnimation {
-                                    duration: Appearance.anim.fast
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            // A pip is too small to hit reliably with a pointer
-                            // that has crossed a network.
-                            anchors.margins: -6
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Hyprland.dispatch(`workspace ${pip.wsId}`)
-                        }
-                    }
-                }
-            }
+            Workspaces {}
 
             StyledText {
                 // Hard-capped rather than fillWidth: this must never grow into
@@ -223,13 +169,13 @@ Item {
                     text: "sports_esports"
                     color: Theme.accent
                     filled: true
-                    size: Appearance.font.size.md
+                    size: Appearance.font.size.lg
                 }
 
                 Icon {
                     text: Net.icon()
                     color: Net.connected ? Theme.textSecondary : Theme.error
-                    size: Appearance.font.size.md
+                    size: Appearance.font.size.lg
 
                     MouseArea {
                         anchors.fill: parent
@@ -245,13 +191,13 @@ Item {
                 Icon {
                     text: Audio.icon()
                     color: Audio.muted ? Theme.error : Theme.textSecondary
-                    size: Appearance.font.size.md
+                    size: Appearance.font.size.lg
                 }
 
                 Icon {
                     text: Notifs.doNotDisturb ? "notifications_off" : Notifs.count > 0 ? "notifications_active" : "notifications"
                     color: Notifs.count > 0 && !Notifs.doNotDisturb ? Theme.accent : Theme.textSecondary
-                    size: Appearance.font.size.md
+                    size: Appearance.font.size.lg
 
                     MouseArea {
                         anchors.fill: parent
