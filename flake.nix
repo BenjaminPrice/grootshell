@@ -29,6 +29,39 @@
         }
       );
 
+      # `nix flake check` — parse every QML file, then audit for the mistakes
+      # that parse cleanly and fail at load. Quickshell exits when its config
+      # fails to load, so each of those is a black screen on a host with no
+      # local console; they are worth catching before a push, not after.
+      checks = forAll (
+        system:
+        let
+          pkgs = pkgsFor system;
+        in
+        {
+          qml = pkgs.runCommand "grootshell-qml-check"
+            {
+              nativeBuildInputs = [
+                pkgs.qt6.qtdeclarative
+                pkgs.python3
+              ];
+            }
+            ''
+              cd ${self}
+
+              for f in $(find . -name '*.qml' -not -path './.git/*' | sort); do
+                qmlformat "$f" > /dev/null || {
+                  echo "qmlformat: $f failed to parse" >&2
+                  exit 1
+                }
+              done
+
+              python3 scripts/qml-audit.py .
+              touch $out
+            '';
+        }
+      );
+
       devShells = forAll (
         system:
         let

@@ -66,7 +66,13 @@ ShellRoot {
             // What the bar occupies: its own height plus the frame band above
             // it. Panels in the overlay dock below this rather than to the bar
             // itself, which now lives in a different window.
-            readonly property int barZone: GameMode.enabled ? 0 : Config.bar.height + Config.border.thickness
+            //
+            // NOT readonly, despite being a pure function of its inputs: a
+            // Behavior animates writes, and a read-only property is never
+            // written to — it is re-evaluated. Declaring this readonly makes the
+            // Behavior below a load-time error rather than a no-op, which takes
+            // the whole shell down.
+            property int barZone: GameMode.enabled ? 0 : Config.bar.height + Config.border.thickness
 
             Behavior on barZone {
                 enabled: Appearance.anim.enabled
