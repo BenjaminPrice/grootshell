@@ -89,9 +89,13 @@ Item {
 
     readonly property int extension: Math.round(depth * progress)
 
-    // Hidden only once fully retracted, so the closing animation runs to the end
-    // instead of the panel vanishing the instant `open` goes false.
-    visible: extension > 0
+    // Visible the moment it starts opening, and until it has finished closing.
+    //
+    // `extension > 0` alone was not enough: extension animates up from zero, so
+    // on the frame `open` flips there is nothing on screen yet — and an
+    // invisible item cannot take active focus, which silently broke keyboard
+    // navigation in any panel that grabs focus on open.
+    visible: open || extension > 0
 
     implicitWidth: horizontal ? span : frameThickness + extension
     implicitHeight: horizontal ? frameThickness + extension : span

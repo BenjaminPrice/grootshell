@@ -50,7 +50,17 @@ DockedPanel {
         // left last time.
         const i = Wallpapers.indexOf(Wallpapers.current);
         selected = i >= 0 ? i : 0;
-        strip.positionViewAtIndex(selected, ListView.Center);
+        // Deferred: focus cannot be taken until the panel is actually on screen,
+        // and it is not yet — the extrusion animates up from zero height, so on
+        // this frame there is nothing to focus. callLater runs it once the
+        // current pass has settled.
+        Qt.callLater(root.grabFocus);
+    }
+
+    function grabFocus(): void {
+        if (!root.open)
+            return;
+        strip.positionViewAtIndex(root.selected, ListView.Center);
         strip.forceActiveFocus();
     }
 
@@ -156,7 +166,10 @@ DockedPanel {
             // sweep does not show empty frames.
             cacheBuffer: width * 2
 
-            focus: root.open
+            // No `focus: true` here: that competes with the focus the overlay
+            // Item in shell.qml holds for Escape. Taking active focus explicitly
+            // once open leaves Escape to bubble up from here, which is what
+            // closes the panel.
             Keys.onLeftPressed: root.move(-1)
             Keys.onRightPressed: root.move(1)
             Keys.onReturnPressed: root.apply()
