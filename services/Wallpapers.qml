@@ -14,8 +14,10 @@ import qs.config
 // a job Qt already does. Setting sourceSize makes the decoder scale on the way
 // in, so a 4K original is never held at 4K in order to draw it 200px tall.
 //
-// The current selection is persisted into shell.json rather than kept in memory,
-// so it survives both a shell restart and the constant reloads of the dev loop.
+// The current selection lives in ./State.qml, so it survives a restart and the
+// constant reloads of the dev loop. State rather than config: it is something a
+// human chose at runtime, not something they configured, and writing it back
+// into shell.json would drag every other default into that file with it.
 
 Singleton {
     id: root
@@ -25,7 +27,9 @@ Singleton {
     readonly property alias model: folder
     readonly property int count: folder.count
 
-    property string current: Config.wallpaper.current
+    // Owned by State, not held here — otherwise a reload would restore the
+    // saved value into a local copy that then immediately diverges from it.
+    readonly property string current: State.wallpaper
 
     FolderListModel {
         id: folder
@@ -71,8 +75,7 @@ Singleton {
     function set(path: string): void {
         if (!path || path === root.current)
             return;
-        root.current = path;
-        Config.wallpaper.current = path;
+        State.wallpaper = path;
     }
 
     function at(index: int): string {

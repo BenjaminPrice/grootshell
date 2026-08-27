@@ -114,8 +114,8 @@ Singleton {
 
             component Wallpaper: JsonObject {
                 property string directory: `${Quickshell.env("HOME")}/Pictures/Wallpapers`
-                property string current: ""
-                property int thumbnailHeight: 130
+                // Which wallpaper is current is NOT here — it is runtime state,
+                // and lives in services/State.qml. See the note there.
             }
 
             component Services: JsonObject {
