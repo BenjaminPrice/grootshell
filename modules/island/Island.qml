@@ -10,15 +10,65 @@ import qs.components
 // Hangs off the bar's centre because that is where the clock is, and the clock
 // is the handle — the drawer appearing directly beneath the thing you clicked is
 // what makes it feel attached rather than summoned.
+//
+// The panel resizes per tab rather than being one box big enough for the largest
+// of them. Performance wants room for six dials; the dashboard is a clock and a
+// date and looks abandoned in the same space.
+//
+// The tabs do not move while it resizes, which is the part that has to be got
+// right or the whole thing feels unstable. Two things make that true: the tab
+// row is sized to its own content rather than stretched to the panel, and the
+// panel is centred on screen, so it grows symmetrically around the row. A
+// fillWidth tab strip would have every button slide outward on every switch —
+// including the one you just clicked, out from under the pointer.
 
 Panel {
     id: root
 
     edge: "top"
     open: ShellState.island
-    implicitWidth: Config.island.width
-    implicitHeight: Config.island.height
     radius: Appearance.rounding.large
+
+    // Sized per tab. Scaled by the font scale so the "sofa, not desk" knob moves
+    // these too — a panel measured in pixels while its contents are measured in
+    // scaled type would clip the moment the scale went up.
+    readonly property var sizes: ({
+            dashboard: {
+                w: 460,
+                h: 300
+            },
+            media: {
+                w: 660,
+                h: 340
+            },
+            performance: {
+                w: 700,
+                h: 480
+            }
+        })
+
+    readonly property var size: sizes[ShellState.islandTab] ?? sizes.dashboard
+
+    implicitWidth: Math.round(size.w * Appearance.font.scale)
+    implicitHeight: Math.round(size.h * Appearance.font.scale)
+
+    Behavior on implicitWidth {
+        enabled: Appearance.anim.enabled
+        NumberAnimation {
+            duration: Appearance.anim.normal
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Appearance.anim.emphasised
+        }
+    }
+
+    Behavior on implicitHeight {
+        enabled: Appearance.anim.enabled
+        NumberAnimation {
+            duration: Appearance.anim.normal
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Appearance.anim.emphasised
+        }
+    }
 
     // The performance tab is the only expensive one. Subscribing on tab change
     // rather than on panel open means an open island sitting on Media costs
@@ -33,7 +83,7 @@ Panel {
 
         // --- Tabs -----------------------------------------------------------
         RowLayout {
-            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignHCenter
             spacing: Appearance.spacing.xs
 
             Repeater {
@@ -56,13 +106,15 @@ Panel {
                 ]
 
                 delegate: Rectangle {
+                    id: tab
                     required property var modelData
 
                     readonly property bool active: ShellState.islandTab === modelData.id
 
-                    Layout.fillWidth: true
-                    implicitHeight: 34
-                    radius: Appearance.rounding.normal
+                    // Sized to content, deliberately. See the note above.
+                    implicitWidth: tabRow.implicitWidth + Appearance.padding.lg * 2
+                    implicitHeight: tabRow.implicitHeight + Appearance.padding.sm * 2
+                    radius: Appearance.rounding.full
                     color: active ? Theme.accentContainer : tabHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
 
                     Behavior on color {
@@ -73,19 +125,20 @@ Panel {
                     }
 
                     RowLayout {
+                        id: tabRow
                         anchors.centerIn: parent
                         spacing: Appearance.spacing.xs
 
                         Icon {
-                            text: modelData.icon
-                            filled: active
-                            color: active ? Theme.accent : Theme.textSecondary
+                            text: tab.modelData.icon
+                            filled: tab.active
+                            color: tab.active ? Theme.accent : Theme.textSecondary
                             size: Appearance.font.size.md
                         }
 
                         StyledText {
-                            text: modelData.label
-                            color: active ? Theme.accent : Theme.textSecondary
+                            text: tab.modelData.label
+                            color: tab.active ? Theme.accent : Theme.textSecondary
                             font.pixelSize: Appearance.font.size.xs
                         }
                     }
@@ -95,7 +148,7 @@ Panel {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: ShellState.islandTab = modelData.id
+                        onClicked: ShellState.islandTab = tab.modelData.id
                     }
                 }
             }

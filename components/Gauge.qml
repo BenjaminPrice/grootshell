@@ -19,7 +19,7 @@ Item {
     property string label
     property string detail
     property color fill: Theme.accent
-    property int thickness: 9
+    property int thickness: Math.max(6, Math.round(9 * Appearance.font.scale))
 
     // Where the arc starts, and how far it sweeps. Qt measures clockwise from
     // 3 o'clock, so 135° is the lower-left.
@@ -28,13 +28,20 @@ Item {
 
     readonly property real fraction: Math.max(0, Math.min(1, value / 100))
 
-    implicitWidth: 108
-    implicitHeight: 108 + labelText.implicitHeight + Appearance.spacing.xs
+    // A floor, not a fixed size: inside a filling GridLayout these are handed a
+    // cell and should use it, but they must not collapse to nothing in a layout
+    // that does not offer one.
+    readonly property int minDial: Math.round(96 * Appearance.font.scale)
+
+    implicitWidth: minDial
+    implicitHeight: minDial + labelText.implicitHeight + Appearance.spacing.xs
 
     Item {
         id: dial
 
-        width: root.implicitWidth
+        // Square, and as large as the cell allows once the label has its row.
+        readonly property int available: Math.min(root.width, root.height - labelText.implicitHeight - Appearance.spacing.xs)
+        width: Math.max(root.minDial, available)
         height: width
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter

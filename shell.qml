@@ -1,5 +1,6 @@
 //@ pragma UseQApplication
 //@ pragma ShellId grootshell
+//@ pragma IconTheme Papirus-Dark
 
 import QtQuick
 import Quickshell
@@ -23,19 +24,34 @@ import qs.modules.keybinds
 
 // grootshell.
 //
-// Two layer surfaces per screen:
+// Three layer surfaces per screen:
 //
 //   Background  bottom layer, the wallpaper. Separate so a fullscreen window
 //               covers it the way it covers any other window.
-//   Overlay     everything else — border, bar, panels — in one fullscreen
+//   Bar         top layer, anchored to the top edge, and the ONLY surface here
+//               with an exclusive zone. That zone is what stops tiled windows
+//               opening underneath the bar — see below.
+//   Overlay     everything else — border and panels — in one fullscreen
 //               transparent surface.
 //
-// The single-overlay shape is what lets panels look like they grow out of the
-// frame instead of floating above it: they are siblings in one scene, sharing a
-// coordinate space and a clip. The price is that a fullscreen transparent
-// surface would eat every click on the desktop, which is what `mask` is for —
-// only the rectangles listed there accept input, and everything else falls
-// through to the window underneath.
+// The bar is its own surface purely so it can reserve space. A layer surface
+// anchored to all four edges has no meaningful exclusive zone (there is no edge
+// to reserve *from*), so while the bar lived inside the overlay nothing told
+// Hyprland it was there and windows tiled straight under it. Hyprland's gaps_out
+// could have been widened at the top to compensate, but that would hard-code the
+// bar's height into the compositor config, in a second place, where it could not
+// follow Config.bar.height when it hot-reloads.
+//
+// The overlay keeps ExclusionMode.Ignore on purpose: the frame occupies the
+// screen edges but must not reserve them, because gaps_out already insets tiled
+// windows to clear it.
+//
+// The single-overlay shape for everything else is what lets panels look like
+// they grow out of the frame instead of floating above it: they are siblings in
+// one scene, sharing a coordinate space and a clip. The price is that a
+// fullscreen transparent surface would eat every click on the desktop, which is
+// what `mask` is for — only the rectangles listed there accept input, and
+// everything else falls through to the window underneath.
 
 ShellRoot {
     id: root
@@ -47,8 +63,54 @@ ShellRoot {
             id: scope
             required property ShellScreen modelData
 
+            // What the bar occupies: its own height plus the frame band above
+            // it. Panels in the overlay dock below this rather than to the bar
+            // itself, which now lives in a different window.
+            readonly property int barZone: GameMode.enabled ? 0 : Config.bar.height + Config.border.thickness
+
+            Behavior on barZone {
+                enabled: Appearance.anim.enabled
+                NumberAnimation {
+                    duration: Appearance.anim.normal
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Appearance.anim.emphasised
+                }
+            }
+
             Background {
                 screen: scope.modelData
+            }
+
+            PanelWindow {
+                id: barWindow
+
+                screen: scope.modelData
+                color: "transparent"
+
+                anchors {
+                    top: true
+                    left: true
+                    right: true
+                }
+
+                implicitHeight: scope.barZone
+                visible: scope.barZone > 0
+
+                // Auto derives the exclusive zone from the anchored size, which
+                // is exactly the reservation we want and keeps following the
+                // height as it animates.
+                exclusionMode: ExclusionMode.Auto
+
+                WlrLayershell.layer: WlrLayer.Top
+                WlrLayershell.namespace: "grootshell-bar"
+                // The bar never types. Taking focus here would steal it from the
+                // window you are working in every time the pointer crossed it.
+                WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+                Bar {
+                    anchors.fill: parent
+                    screen: scope.modelData
+                }
             }
 
             PanelWindow {
@@ -64,19 +126,14 @@ ShellRoot {
                     right: true
                 }
 
-                // Ignore, not Auto: the frame occupies the screen edges but must
-                // NOT reserve them. Hyprland's own gaps_out already insets tiled
-                // windows to clear the border (see hyprland.lua), and an
-                // exclusive zone on top of that would inset them twice.
                 exclusionMode: ExclusionMode.Ignore
 
                 WlrLayershell.layer: WlrLayer.Top
                 WlrLayershell.namespace: "grootshell"
 
                 // Exclusive only while something that types is open. OnDemand
-                // would let the bar steal focus from the focused window on
-                // hover, and None would make the launcher unable to read a
-                // keystroke.
+                // would let a panel steal focus on hover, and None would make the
+                // launcher unable to read a keystroke.
                 WlrLayershell.keyboardFocus: ShellState.anyOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
                 // Escape closes whatever is open, from anywhere. The one binding
@@ -89,26 +146,17 @@ ShellRoot {
                     Keys.onEscapePressed: ShellState.closeAll()
 
                     Border {
-                        id: border
                         anchors.fill: parent
                     }
 
-                    Bar {
-                        id: bar
-                        screen: scope.modelData
-                        anchors {
-                            top: parent.top
-                            left: parent.left
-                            right: parent.right
-                        }
-                    }
-
-                    // Docked into the frame rather than floating over it: each
-                    // of these anchors to the border's inner edge.
+                    // Docked into the frame rather than floating over it. Each
+                    // of these anchors to the screen edge it belongs to, inset
+                    // past the bar's reserved zone at the top.
                     Island {
                         id: island
                         anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.top: bar.bottom
+                        anchors.top: parent.top
+                        anchors.topMargin: scope.barZone
                     }
 
                     Launcher {
@@ -120,21 +168,24 @@ ShellRoot {
                     Sidebar {
                         id: sidebar
                         anchors.left: parent.left
-                        anchors.top: bar.bottom
+                        anchors.top: parent.top
+                        anchors.topMargin: scope.barZone
                         anchors.bottom: parent.bottom
                     }
 
                     NotificationCentre {
                         id: notificationCentre
                         anchors.right: parent.right
-                        anchors.top: bar.bottom
+                        anchors.top: parent.top
+                        anchors.topMargin: scope.barZone
                         anchors.bottom: parent.bottom
                     }
 
                     Toasts {
                         id: toasts
                         anchors.right: parent.right
-                        anchors.top: bar.bottom
+                        anchors.top: parent.top
+                        anchors.topMargin: scope.barZone
                     }
 
                     Osd {
@@ -146,7 +197,8 @@ ShellRoot {
                     NetworkPopout {
                         id: networkPopout
                         anchors.right: parent.right
-                        anchors.top: bar.bottom
+                        anchors.top: parent.top
+                        anchors.topMargin: scope.barZone
                     }
 
                     ClipboardPanel {
@@ -176,10 +228,10 @@ ShellRoot {
                 // contributes nothing, so the desktop underneath stays fully
                 // usable — which is the difference between a shell and a
                 // fullscreen window that happens to be mostly transparent.
+                //
+                // The bar is absent because it is no longer in this window; its
+                // own surface takes input across its whole area.
                 mask: Region {
-                    Region {
-                        item: bar
-                    }
                     Region {
                         item: island.visible ? island : null
                     }

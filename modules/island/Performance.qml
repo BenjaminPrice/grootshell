@@ -44,14 +44,21 @@ Item {
         anchors.fill: parent
         spacing: Appearance.spacing.md
 
+        // Fills the panel rather than sitting at its natural size — the island
+        // grows for this tab specifically (see Island.qml), and dials floating
+        // in the top half of the space it just made would be worse than not
+        // having grown at all.
         GridLayout {
             Layout.fillWidth: true
-            Layout.alignment: Qt.AlignHCenter
+            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignCenter
             columns: 3
             columnSpacing: Appearance.spacing.lg
             rowSpacing: Appearance.spacing.md
 
             Gauge {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 label: "CPU"
                 value: Sys.cpu
                 detail: `${Math.round(Sys.cpu)}%`
@@ -59,6 +66,8 @@ Item {
             }
 
             Gauge {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 label: "GPU"
                 value: Sys.gpu
                 detail: `${Math.round(Sys.gpu)}%`
@@ -66,6 +75,8 @@ Item {
             }
 
             Gauge {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 label: "Memory"
                 value: Sys.memory
                 detail: `${Math.round(Sys.memory)}%`
@@ -73,6 +84,8 @@ Item {
             }
 
             Gauge {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 label: "CPU temp"
                 // Scaled against a 100°C ceiling so the sweep means the same
                 // thing as the load dials: fraction of the way to trouble.
@@ -82,6 +95,8 @@ Item {
             }
 
             Gauge {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 label: "GPU temp"
                 value: Math.min(100, Sys.gpuTemperature)
                 detail: `${Math.round(Sys.gpuTemperature)}°`
@@ -89,6 +104,8 @@ Item {
             }
 
             Gauge {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 label: "Swap"
                 value: Sys.swap
                 detail: `${Math.round(Sys.swap)}%`
@@ -97,10 +114,6 @@ Item {
                 // permanently empty dial implying something is wrong.
                 visible: Sys.swap > 0
             }
-        }
-
-        Item {
-            Layout.fillHeight: true
         }
 
         StyledText {

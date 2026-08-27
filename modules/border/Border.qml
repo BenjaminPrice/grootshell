@@ -53,7 +53,7 @@ Item {
         asynchronous: false
 
         ShapePath {
-            fillColor: Theme.background
+            fillColor: Theme.frame
             strokeWidth: 0
             fillRule: ShapePath.OddEvenFill
 

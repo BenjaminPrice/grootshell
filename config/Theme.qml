@@ -53,6 +53,15 @@ Singleton {
     // teal accent below it reads as one material lit from somewhere, which flat
     // #000 does not.
     readonly property color background: c.background ?? "#0a0f0f"
+
+    // The frame and the bar behind it. Its own token rather than reusing
+    // `background`, because the two are only incidentally similar: `background`
+    // is what you see when there is no wallpaper, and wants to be as close to
+    // black as the palette goes. The frame is a physical-looking bezel drawn
+    // over a photograph, and at true black it stops reading as part of the shell
+    // and starts reading as the edge of the monitor.
+    readonly property color frame: c.frame ?? "#151f1e"
+
     readonly property color surface: c.surface ?? "#0e1514"
     readonly property color surfaceContainer: c.surfaceContainer ?? "#131b1a"
     readonly property color surfaceContainerHigh: c.surfaceContainerHigh ?? "#192120"

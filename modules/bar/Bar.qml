@@ -14,6 +14,10 @@ import qs.components
 // of it — the bar is the top edge of the content area, not a separate strip
 // above it.
 //
+// Fills the bar window (see shell.qml), which owns the height and the exclusive
+// zone that keeps windows from opening underneath. This draws; the window
+// reserves.
+//
 // Three independently anchored groups, NOT one RowLayout with spacers. That
 // matters: spacers centre a widget in the space left over after its neighbours,
 // so the clock drifts by half the difference between the left and right groups
@@ -28,17 +32,15 @@ Item {
 
     readonly property int inset: Config.border.thickness
 
-    implicitHeight: GameMode.enabled ? 0 : Config.bar.height + inset
-    visible: implicitHeight > 0
     clip: true
 
-    Behavior on implicitHeight {
-        enabled: Appearance.anim.enabled
-        NumberAnimation {
-            duration: Appearance.anim.normal
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: Appearance.anim.emphasised
-        }
+    // Frame-coloured, so the bar and the border read as one continuous band
+    // rather than as a strip sitting on top of one. Extends the full width and
+    // height of the window, which includes the frame's top band above the
+    // content strip.
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.frame
     }
 
     // The content strip, below the frame's top edge.
@@ -51,7 +53,7 @@ Item {
         anchors.leftMargin: root.inset + Appearance.padding.lg
         anchors.rightMargin: root.inset + Appearance.padding.lg
         anchors.topMargin: root.inset
-        height: Config.bar.height
+        anchors.bottom: parent.bottom
 
         // --- Left -----------------------------------------------------------
         RowLayout {
