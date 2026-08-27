@@ -24,6 +24,7 @@
   gnused,
   grim,
   hyprland,
+  imagemagick,
   libnotify,
   lm_sensors,
   networkmanager,
@@ -45,6 +46,11 @@ let
     gnused
     grim
     hyprland # hyprctl
+    # Thumbnails for the wallpaper switcher. Without it the cache script
+    # `command -v magick`s, finds nothing, and exits successfully — so the
+    # switcher silently fell back to decoding full-resolution originals for
+    # every tile.
+    imagemagick
     libnotify
     lm_sensors # sensors, for the performance tab
     networkmanager # nmcli, for the wifi popout

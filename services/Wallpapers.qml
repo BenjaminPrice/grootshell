@@ -34,6 +34,10 @@ Singleton {
         showHidden: false
         sortField: FolderListModel.Name
         nameFilters: ["*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp"]
+        // Filters match case-sensitively by default, so a file saved as
+        // .PNG or .JPG — which is most things straight off a camera or a
+        // download — was invisible to the switcher.
+        caseSensitive: false
 
         onCountChanged: {
             // First run, or the saved wallpaper has since been deleted.

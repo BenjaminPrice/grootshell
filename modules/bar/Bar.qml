@@ -133,9 +133,15 @@ Item {
                     model: SystemTray.items
 
                     delegate: MouseArea {
+                        id: trayItem
                         required property SystemTrayItem modelData
 
-                        implicitWidth: Appearance.font.size.lg
+                        // Larger than the Material Symbols icons beside it on
+                        // purpose. IconImage fits its source with
+                        // PreserveAspectFit, so a non-square tray icon gets
+                        // padded and renders visibly smaller than the box it was
+                        // given — matching the numbers made it look mismatched.
+                        implicitWidth: Config.bar.trayIconSize
                         implicitHeight: implicitWidth
                         cursorShape: Qt.PointingHandCursor
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -145,15 +151,24 @@ Item {
                             // action. fcitx5 is the main tray citizen on groot
                             // and its right-click menu is how you switch input
                             // method.
-                            if (mouse.button === Qt.RightButton)
-                                modelData.display(QsWindow.window, width / 2, height);
-                            else
-                                modelData.activate();
+                            if (mouse.button !== Qt.RightButton) {
+                                trayItem.modelData.activate();
+                                return;
+                            }
+
+                            // Coordinates are relative to the WINDOW, not to
+                            // this item. Passing local ones put every menu at
+                            // the window's top-left corner regardless of which
+                            // icon was clicked; mapping to the scene is what
+                            // makes it open under the pointer.
+                            const at = trayItem.mapToItem(null, mouse.x, mouse.y);
+                            trayItem.modelData.display(QsWindow.window, at.x, at.y);
                         }
 
                         IconImage {
                             anchors.fill: parent
-                            source: modelData.icon
+                            implicitSize: trayItem.implicitWidth
+                            source: trayItem.modelData.icon
                             asynchronous: true
                         }
                     }

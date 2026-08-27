@@ -155,6 +155,26 @@ ShellRoot {
                         anchors.fill: parent
                     }
 
+                    // Click-outside-to-close. Declared before the panels so it
+                    // sits underneath them — a click that lands on a panel hits
+                    // the panel, and anything else hits this.
+                    //
+                    // It has to be a real item in the mask, not just an absence:
+                    // the mask is what decides whether the compositor gives this
+                    // surface the click at all, so without a region covering the
+                    // screen an outside click goes straight through to whatever
+                    // window is behind and the panel stays open.
+                    MouseArea {
+                        id: scrim
+                        anchors.fill: parent
+                        visible: ShellState.anyOpen
+                        // No visual. A dimming layer would be the obvious thing
+                        // and is wrong here: every frame it darkens is a frame
+                        // re-encoded for the stream, for an effect nobody asked
+                        // for.
+                        onClicked: ShellState.closeAll()
+                    }
+
                     // Docked into the frame rather than floating over it. Each
                     // of these anchors to the screen edge it belongs to, inset
                     // past the bar's reserved zone at the top.
@@ -238,6 +258,9 @@ ShellRoot {
                 // The bar is absent because it is no longer in this window; its
                 // own surface takes input across its whole area.
                 mask: Region {
+                    Region {
+                        item: scrim.visible ? scrim : null
+                    }
                     Region {
                         item: island.visible ? island : null
                     }

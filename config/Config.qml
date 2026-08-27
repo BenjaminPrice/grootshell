@@ -71,6 +71,10 @@ Singleton {
                 // mode switch exists to do deliberately.
                 property int workspaces: 5
                 property bool showTray: true
+                // Tray icons are images, not glyphs, and IconImage pads a
+                // non-square source to fit — so they need to be a size up to
+                // look level with the Material Symbols icons next to them.
+                property int trayIconSize: 28
                 property bool showClock: true
                 property string clockFormat: "ddd d MMM  HH:mm"
             }

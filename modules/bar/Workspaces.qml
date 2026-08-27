@@ -36,9 +36,27 @@ Item {
     implicitWidth: track.implicitWidth
     implicitHeight: track.implicitHeight
 
+    // Filters the global toplevel list rather than reading a workspace's own
+    // `toplevels` model. Same data, one less thing that has to be populated for
+    // this to work at all.
+    //
+    // Indexed loop rather than .filter(): `values` comes across as a QList and
+    // whether it arrives as a real JS array is not something to bet the whole
+    // widget on — if it does not, an array method throws, the binding fails, and
+    // the Repeater silently gets nothing.
     function windowsOn(id: int): var {
-        const ws = Hyprland.workspaces.values.find(w => w.id === id);
-        return ws?.toplevels?.values ?? [];
+        const all = Hyprland.toplevels?.values ?? [];
+        const out = [];
+        for (let i = 0; i < all.length; i++) {
+            const t = all[i];
+            if ((t?.workspace?.id ?? -1) === id)
+                out.push(t);
+        }
+        return out;
+    }
+
+    function classOf(toplevel): string {
+        return toplevel?.lastIpcObject?.class ?? toplevel?.lastIpcObject?.initialClass ?? "";
     }
 
     // A window class is not an icon name — "org.mozilla.firefox" and "firefox"
@@ -47,11 +65,18 @@ Item {
     // itself so an app with no desktop entry still gets whatever the icon theme
     // has under that name.
     function iconFor(toplevel): string {
-        const cls = toplevel?.lastIpcObject?.class ?? "";
+        const cls = root.classOf(toplevel);
         if (!cls)
             return "";
-        const entry = DesktopEntries.heuristicLookup(cls);
-        return Quickshell.iconPath(entry?.icon ?? cls, "application-x-executable");
+        // heuristicLookup can return null for anything without a desktop entry,
+        // and can throw on odd input; neither should take the bar down.
+        let named = cls;
+        try {
+            const entry = DesktopEntries.heuristicLookup(cls);
+            if (entry?.icon)
+                named = entry.icon;
+        } catch (e) {}
+        return Quickshell.iconPath(named, "application-x-executable");
     }
 
     function switchBy(delta: int): void {
@@ -124,16 +149,38 @@ Item {
                         Repeater {
                             model: slot.windows.slice(0, root.maxIcons)
 
-                            delegate: IconImage {
+                            delegate: Item {
+                                id: appIcon
                                 required property var modelData
 
-                                implicitSize: Appearance.font.size.md
-                                source: root.iconFor(modelData)
-                                asynchronous: true
+                                implicitWidth: Appearance.font.size.md
+                                implicitHeight: implicitWidth
                                 // Dim what is not focused, so the active
                                 // workspace reads first even in a row that is
                                 // otherwise all icons.
                                 opacity: slot.active ? 1 : 0.65
+
+                                IconImage {
+                                    id: img
+                                    anchors.fill: parent
+                                    implicitSize: appIcon.implicitWidth
+                                    source: root.iconFor(appIcon.modelData)
+                                    asynchronous: true
+                                    visible: status === Image.Ready
+                                }
+
+                                // A window with no resolvable icon still has to
+                                // occupy its slot — otherwise "nothing is
+                                // running here" and "the icon theme has no entry
+                                // for this" look identical, which is exactly the
+                                // ambiguity that made this hard to diagnose.
+                                StyledText {
+                                    anchors.centerIn: parent
+                                    visible: !img.visible
+                                    text: (root.classOf(appIcon.modelData)[0] ?? "?").toUpperCase()
+                                    color: slot.active ? Theme.accent : Theme.textSecondary
+                                    font.pixelSize: Appearance.font.size.xs
+                                }
                             }
                         }
 
