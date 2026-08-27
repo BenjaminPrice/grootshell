@@ -17,14 +17,30 @@ import qs.components
 // applications, `>` runs a command, `=` evaluates arithmetic. Prefixes keep it a
 // single field with no state to get stuck in.
 
-Panel {
+// Docked rather than floating: it pulls out of the bottom border with the same
+// filleted junctions as the wallpaper strip, so it reads as the frame making
+// room rather than as a box appearing over the desktop.
+DockedPanel {
     id: root
 
     edge: "bottom"
     open: ShellState.launcher
-    implicitWidth: Config.launcher.width
-    implicitHeight: body.implicitHeight + Appearance.padding.lg * 2
-    radius: Appearance.rounding.large
+
+    span: Math.round(Config.launcher.width * Appearance.font.scale)
+
+    // Grows and shrinks with the result list. Animated, because the depth
+    // changes on every keystroke that adds or removes a row, and an unanimated
+    // panel jumping height under the text you are typing is worse than no
+    // animation at all.
+    depth: body.implicitHeight + padding * 2
+
+    Behavior on depth {
+        enabled: Appearance.anim.enabled
+        NumberAnimation {
+            duration: Appearance.anim.fast
+            easing.type: Easing.OutQuad
+        }
+    }
 
     readonly property string query: input.text
     readonly property bool isCommand: query.startsWith(Config.launcher.commandPrefix)

@@ -28,8 +28,11 @@ DockedPanel {
     // Full height below the bar. Computed from the same values shell.qml uses to
     // place it, rather than anchoring top and bottom — a DockedPanel sizes
     // itself from span and depth, so anchoring both edges would fight it.
+    // Half the usable height, hung from the bar rather than filling the edge.
+    // Top-aligned because it grows downward as notifications arrive, and a
+    // centred panel would push its own contents around every time one did.
     readonly property int barZone: Config.bar.height + Config.border.thickness
-    span: Math.max(0, (parent?.height ?? 1080) - barZone - Config.border.thickness)
+    span: Math.round(((parent?.height ?? 1080) - barZone - Config.border.thickness) * 0.5)
 
     ColumnLayout {
         anchors.fill: parent

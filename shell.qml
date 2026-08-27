@@ -15,7 +15,7 @@ import qs.modules.island
 import qs.modules.launcher
 import qs.modules.notifications
 import qs.modules.osd
-import qs.modules.sidebar
+import qs.modules.translate
 import qs.modules.wallpaper
 import qs.modules.network
 import qs.modules.clipboard
@@ -191,12 +191,13 @@ ShellRoot {
                         anchors.bottom: parent.bottom
                     }
 
-                    Sidebar {
-                        id: sidebar
+                    // Vertically centred: it is half height now, and pinning it
+                    // under the bar would leave it hanging off the top with a
+                    // gulf beneath.
+                    TranslatePanel {
+                        id: translatePanel
                         anchors.left: parent.left
-                        anchors.top: parent.top
-                        anchors.topMargin: scope.barZone
-                        anchors.bottom: parent.bottom
+                        anchors.verticalCenter: parent.verticalCenter
                     }
 
                     // Top only. A DockedPanel sizes itself from span and depth,
@@ -274,7 +275,7 @@ ShellRoot {
                         item: launcher.visible ? launcher : null
                     }
                     Region {
-                        item: sidebar.visible ? sidebar : null
+                        item: translatePanel.visible ? translatePanel : null
                     }
                     Region {
                         item: notificationCentre.visible ? notificationCentre : null
@@ -325,9 +326,9 @@ ShellRoot {
     }
 
     IpcHandler {
-        target: "sidebar"
+        target: "translate"
         function toggle(): void {
-            ShellState.toggle("sidebar");
+            ShellState.toggle("translate");
         }
     }
 
