@@ -30,6 +30,7 @@
   procps,
   slurp,
   swappy,
+  systemd,
   util-linux,
   wl-clipboard,
 }:
@@ -51,6 +52,10 @@ let
     procps
     slurp
     swappy
+    # systemd-run, which the launcher uses to start applications in their own
+    # transient scope. Without it every launched app sits in the shell's cgroup
+    # and dies with the next `systemctl restart grootshell`.
+    systemd
     util-linux
     wl-clipboard
   ];

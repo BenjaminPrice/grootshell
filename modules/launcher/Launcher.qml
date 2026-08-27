@@ -103,16 +103,20 @@ DockedPanel {
         if (isMath)
             return; // the result is the answer; nothing to launch
 
+        // Both paths go through Apps, which puts the process in its own
+        // systemd scope. Launching directly leaves it in the shell's cgroup,
+        // where the next `systemctl restart grootshell` kills it — see
+        // services/Apps.qml.
         if (isCommand) {
             if (term)
-                Quickshell.execDetached(["bash", "-lc", term]);
+                Apps.shell(term);
             ShellState.close("launcher");
             return;
         }
 
         const app = results[selected];
         if (app) {
-            app.execute();
+            Apps.launchEntry(app);
             ShellState.close("launcher");
         }
     }
