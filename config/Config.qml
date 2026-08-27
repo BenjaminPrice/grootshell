@@ -16,6 +16,7 @@ Singleton {
 
     readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || `${Quickshell.env("HOME")}/.config`) + "/grootshell"
 
+    property alias appearance: adapter.appearance
     property alias bar: adapter.bar
     property alias border: adapter.border
     property alias island: adapter.island
@@ -34,6 +35,10 @@ Singleton {
         JsonAdapter {
             id: adapter
 
+            // Type is Scaling, not Appearance: an inline component named
+            // Appearance would shadow the Appearance singleton next door, which
+            // is exactly the thing reading these values back.
+            property Scaling appearance: Scaling {}
             property Bar bar: Bar {}
             property Border border: Border {}
             property Island island: Island {}
@@ -43,8 +48,22 @@ Singleton {
             property Wallpaper wallpaper: Wallpaper {}
             property Services services: Services {}
 
+            // Global size multipliers, read by config/Appearance.qml. This is
+            // the knob for "I am on the sofa, not at the desk" — bump fontScale
+            // and everything grows together. Hot-reloads, so it can be tuned
+            // against a live stream rather than guessed at.
+            component Scaling: JsonObject {
+                property real fontScale: 1.0
+                property real roundingScale: 1.0
+                property real spacingScale: 1.0
+                property real paddingScale: 1.0
+            }
+
             component Bar: JsonObject {
-                property int height: 38
+                // Tall enough for the type above at scale 1. Raising fontScale
+                // does not raise this, so bump both together if you want a
+                // bigger bar rather than a cramped one.
+                property int height: 54
                 property bool showOnHover: false
                 // Workspaces 1-5 are the desktop; 10 is where games live (see
                 // groot-mode in the nixos repo). Showing 10 in the strip would

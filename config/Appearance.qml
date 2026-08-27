@@ -6,18 +6,26 @@ import Quickshell
 // Design tokens: the numbers that make the shell look like one thing rather than
 // a dozen widgets that happen to share a screen.
 //
-// Scales exist because this shell is driven over Moonlight at whatever
-// resolution the client asked for, which is not necessarily the resolution it is
-// being *looked at*. Bumping one scale is how you adapt to a couch instead of a
-// desk without touching thirty files.
+// Every group is scaled by a value from Config, because this shell is driven over
+// Moonlight at whatever resolution the client asked for, which is not necessarily
+// the resolution it is being *looked at*. A desk and a sofa want different sizes
+// out of the same 1080p stream, and the difference should be one number in
+// shell.json — which hot-reloads — rather than an edit to thirty files.
+//
+// Defaults are deliberately larger than a laptop shell would use. This is read
+// from across a room through a video encoder, not from 60cm away.
 
 Singleton {
     id: root
 
+    // Config lives in the same directory, so it resolves without an import.
+    // Deliberately one-way: Config knows nothing about Appearance, so there is
+    // no initialisation cycle between the two singletons.
+
     // --- Geometry -----------------------------------------------------------
 
     readonly property QtObject rounding: QtObject {
-        readonly property real scale: 1
+        readonly property real scale: Config.appearance.roundingScale
         readonly property int small: Math.round(8 * scale)
         readonly property int normal: Math.round(14 * scale)
         readonly property int large: Math.round(22 * scale)
@@ -28,7 +36,7 @@ Singleton {
     }
 
     readonly property QtObject spacing: QtObject {
-        readonly property real scale: 1
+        readonly property real scale: Config.appearance.spacingScale
         readonly property int xs: Math.round(4 * scale)
         readonly property int sm: Math.round(8 * scale)
         readonly property int md: Math.round(12 * scale)
@@ -37,7 +45,7 @@ Singleton {
     }
 
     readonly property QtObject padding: QtObject {
-        readonly property real scale: 1
+        readonly property real scale: Config.appearance.paddingScale
         readonly property int xs: Math.round(4 * scale)
         readonly property int sm: Math.round(8 * scale)
         readonly property int md: Math.round(12 * scale)
@@ -50,7 +58,7 @@ Singleton {
     // resolve regardless of what the host has installed.
 
     readonly property QtObject font: QtObject {
-        readonly property real scale: 1
+        readonly property real scale: Config.appearance.fontScale
 
         readonly property QtObject family: QtObject {
             readonly property string sans: "Rubik"
@@ -59,12 +67,12 @@ Singleton {
         }
 
         readonly property QtObject size: QtObject {
-            readonly property int xs: Math.round(11 * root.font.scale)
-            readonly property int sm: Math.round(13 * root.font.scale)
-            readonly property int md: Math.round(15 * root.font.scale)
-            readonly property int lg: Math.round(19 * root.font.scale)
-            readonly property int xl: Math.round(26 * root.font.scale)
-            readonly property int xxl: Math.round(38 * root.font.scale)
+            readonly property int xs: Math.round(13 * root.font.scale)
+            readonly property int sm: Math.round(16 * root.font.scale)
+            readonly property int md: Math.round(19 * root.font.scale)
+            readonly property int lg: Math.round(24 * root.font.scale)
+            readonly property int xl: Math.round(32 * root.font.scale)
+            readonly property int xxl: Math.round(46 * root.font.scale)
         }
     }
 

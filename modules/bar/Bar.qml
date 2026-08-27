@@ -14,10 +14,12 @@ import qs.components
 // of it — the bar is the top edge of the content area, not a separate strip
 // above it.
 //
-// Caelestia's is vertical down the left. This one is horizontal along the top,
-// which changes more than it sounds like: workspace pips read left-to-right as a
-// strip, the window title gets real width instead of being truncated to an icon,
-// and the centre becomes a natural place to hang the island off.
+// Three independently anchored groups, NOT one RowLayout with spacers. That
+// matters: spacers centre a widget in the space left over after its neighbours,
+// so the clock drifts by half the difference between the left and right groups
+// and is never actually centred. Anchoring the centre group to the bar's own
+// horizontalCenter is the only arrangement that survives the sides changing
+// width — which they do constantly, as window titles and tray icons come and go.
 
 Item {
     id: root
@@ -39,208 +41,224 @@ Item {
         }
     }
 
-    RowLayout {
-        anchors.fill: parent
-        anchors.leftMargin: root.inset + Appearance.padding.md
-        anchors.rightMargin: root.inset + Appearance.padding.md
+    // The content strip, below the frame's top edge.
+    Item {
+        id: strip
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.leftMargin: root.inset + Appearance.padding.lg
+        anchors.rightMargin: root.inset + Appearance.padding.lg
         anchors.topMargin: root.inset
-        spacing: Appearance.spacing.md
+        height: Config.bar.height
 
-        // --- Workspaces -----------------------------------------------------
+        // --- Left -----------------------------------------------------------
         RowLayout {
-            spacing: Appearance.spacing.xs
-            Layout.alignment: Qt.AlignVCenter
+            id: left
 
-            Repeater {
-                model: Config.bar.workspaces
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Appearance.spacing.md
 
-                delegate: Item {
-                    id: pip
-                    required property int index
+            RowLayout {
+                spacing: Appearance.spacing.xs
 
-                    readonly property int wsId: index + 1
-                    readonly property var ws: Hyprland.workspaces.values.find(w => w.id === pip.wsId) ?? null
-                    readonly property bool occupied: (ws?.lastIpcObject?.windows ?? 0) > 0
-                    readonly property bool active: Hyprland.focusedWorkspace?.id === pip.wsId
+                Repeater {
+                    model: Config.bar.workspaces
 
-                    implicitWidth: active ? 30 : 14
-                    implicitHeight: 14
+                    delegate: Item {
+                        id: pip
+                        required property int index
 
-                    Behavior on implicitWidth {
-                        enabled: Appearance.anim.enabled
-                        NumberAnimation {
-                            duration: Appearance.anim.normal
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Appearance.anim.emphasised
-                        }
-                    }
+                        readonly property int wsId: index + 1
+                        readonly property var ws: Hyprland.workspaces.values.find(w => w.id === pip.wsId) ?? null
+                        readonly property bool occupied: (ws?.lastIpcObject?.windows ?? 0) > 0
+                        readonly property bool active: Hyprland.focusedWorkspace?.id === pip.wsId
 
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: parent.implicitWidth
-                        height: 6
-                        radius: height / 2
-                        // Three states worth distinguishing: where you are, where
-                        // there is something to go back to, and empty.
-                        color: pip.active ? Theme.accent : pip.occupied ? Theme.outline : Theme.outlineVariant
+                        implicitWidth: active ? 34 : 16
+                        implicitHeight: 16
 
-                        Behavior on color {
+                        Behavior on implicitWidth {
                             enabled: Appearance.anim.enabled
-                            ColorAnimation {
-                                duration: Appearance.anim.fast
+                            NumberAnimation {
+                                duration: Appearance.anim.normal
+                                easing.type: Easing.BezierSpline
+                                easing.bezierCurve: Appearance.anim.emphasised
                             }
                         }
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: parent.implicitWidth
+                            height: 7
+                            radius: height / 2
+                            // Three states worth distinguishing: where you are,
+                            // where there is something to go back to, and empty.
+                            color: pip.active ? Theme.accent : pip.occupied ? Theme.outline : Theme.outlineVariant
+
+                            Behavior on color {
+                                enabled: Appearance.anim.enabled
+                                ColorAnimation {
+                                    duration: Appearance.anim.fast
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            // A pip is too small to hit reliably with a pointer
+                            // that has crossed a network.
+                            anchors.margins: -6
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Hyprland.dispatch(`workspace ${pip.wsId}`)
+                        }
                     }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        // A 14px target is too small to hit reliably with a
-                        // pointer that has crossed a network.
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: Hyprland.dispatch(`workspace ${pip.wsId}`)
-                    }
-                }
-            }
-        }
-
-        // --- Active window --------------------------------------------------
-        StyledText {
-            Layout.fillWidth: true
-            Layout.maximumWidth: root.width / 4
-            text: Hyprland.activeToplevel?.title ?? ""
-            color: Theme.textSecondary
-            font.pixelSize: Appearance.font.size.sm
-            elide: Text.ElideRight
-        }
-
-        Item {
-            Layout.fillWidth: true
-        }
-
-        // --- Clock: the island's handle -------------------------------------
-        Rectangle {
-            id: clock
-            visible: Config.bar.showClock
-            Layout.alignment: Qt.AlignVCenter
-            implicitWidth: clockText.implicitWidth + Appearance.padding.lg * 2
-            implicitHeight: Config.bar.height - Appearance.padding.xs * 2
-            radius: Appearance.rounding.full
-            color: ShellState.island ? Theme.accentContainer : clockHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
-
-            Behavior on color {
-                enabled: Appearance.anim.enabled
-                ColorAnimation {
-                    duration: Appearance.anim.fast
                 }
             }
 
             StyledText {
-                id: clockText
-                anchors.centerIn: parent
-                text: Time.format(Config.bar.clockFormat)
-                color: ShellState.island ? Theme.accent : Theme.text
-                font.pixelSize: Appearance.font.size.sm
-            }
-
-            MouseArea {
-                id: clockHover
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: ShellState.toggle("island")
+                // Hard-capped rather than fillWidth: this must never grow into
+                // the centre group, which is anchored independently and would
+                // simply be overlapped.
+                Layout.maximumWidth: Math.max(0, (strip.width - centre.width) / 2 - Appearance.spacing.xl)
+                text: Hyprland.activeToplevel?.title ?? ""
+                color: Theme.textSecondary
+                elide: Text.ElideRight
             }
         }
 
-        Item {
-            Layout.fillWidth: true
-        }
-
-        // --- Tray -----------------------------------------------------------
+        // --- Centre ---------------------------------------------------------
         RowLayout {
-            visible: Config.bar.showTray
-            Layout.alignment: Qt.AlignVCenter
+            id: centre
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
             spacing: Appearance.spacing.sm
 
-            Repeater {
-                model: SystemTray.items
+            Rectangle {
+                id: clock
+                visible: Config.bar.showClock
+                implicitWidth: clockText.implicitWidth + Appearance.padding.xl * 2
+                implicitHeight: Config.bar.height - Appearance.padding.sm * 2
+                radius: Appearance.rounding.full
+                color: ShellState.island ? Theme.accentContainer : clockHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
 
-                delegate: MouseArea {
-                    required property SystemTrayItem modelData
-
-                    implicitWidth: 20
-                    implicitHeight: 20
-                    cursorShape: Qt.PointingHandCursor
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
-
-                    onClicked: mouse => {
-                        // Right-click is the menu, left is the app's own action.
-                        // fcitx5 is the main tray citizen on groot and its
-                        // right-click menu is how you switch input method.
-                        if (mouse.button === Qt.RightButton)
-                            modelData.display(QsWindow.window, width / 2, height);
-                        else
-                            modelData.activate();
+                Behavior on color {
+                    enabled: Appearance.anim.enabled
+                    ColorAnimation {
+                        duration: Appearance.anim.fast
                     }
+                }
 
-                    IconImage {
+                StyledText {
+                    id: clockText
+                    anchors.centerIn: parent
+                    text: Time.format(Config.bar.clockFormat)
+                    color: ShellState.island ? Theme.accent : Theme.text
+                    font.pixelSize: Appearance.font.size.md
+                }
+
+                MouseArea {
+                    id: clockHover
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: ShellState.toggle("island")
+                }
+            }
+        }
+
+        // --- Right ----------------------------------------------------------
+        RowLayout {
+            id: right
+
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Appearance.spacing.md
+
+            RowLayout {
+                visible: Config.bar.showTray
+                spacing: Appearance.spacing.sm
+
+                Repeater {
+                    model: SystemTray.items
+
+                    delegate: MouseArea {
+                        required property SystemTrayItem modelData
+
+                        implicitWidth: Appearance.font.size.lg
+                        implicitHeight: implicitWidth
+                        cursorShape: Qt.PointingHandCursor
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                        onClicked: mouse => {
+                            // Right-click is the menu, left is the app's own
+                            // action. fcitx5 is the main tray citizen on groot
+                            // and its right-click menu is how you switch input
+                            // method.
+                            if (mouse.button === Qt.RightButton)
+                                modelData.display(QsWindow.window, width / 2, height);
+                            else
+                                modelData.activate();
+                        }
+
+                        IconImage {
+                            anchors.fill: parent
+                            source: modelData.icon
+                            asynchronous: true
+                        }
+                    }
+                }
+            }
+
+            RowLayout {
+                spacing: Appearance.spacing.sm
+
+                // Only visible in game mode — a persistent reminder that the
+                // desktop is deliberately stripped, so a missing bar never looks
+                // like a crash.
+                Icon {
+                    visible: GameMode.enabled
+                    text: "sports_esports"
+                    color: Theme.accent
+                    filled: true
+                    size: Appearance.font.size.md
+                }
+
+                Icon {
+                    text: Net.icon()
+                    color: Net.connected ? Theme.textSecondary : Theme.error
+                    size: Appearance.font.size.md
+
+                    MouseArea {
                         anchors.fill: parent
-                        source: modelData.icon
-                        asynchronous: true
+                        anchors.margins: -4
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            Net.scan();
+                            ShellState.toggle("network");
+                        }
                     }
                 }
-            }
-        }
 
-        // --- Status ---------------------------------------------------------
-        RowLayout {
-            Layout.alignment: Qt.AlignVCenter
-            spacing: Appearance.spacing.sm
-
-            // Only visible in game mode — a persistent reminder that the desktop
-            // is deliberately stripped, so a missing bar never looks like a
-            // crash. (The bar is collapsed in game mode, so in practice this is
-            // seen during the transition and on the game workspace's edges.)
-            Icon {
-                visible: GameMode.enabled
-                text: "sports_esports"
-                color: Theme.accent
-                filled: true
-                size: Appearance.font.size.md
-            }
-
-            Icon {
-                text: Net.icon()
-                color: Net.connected ? Theme.textSecondary : Theme.error
-                size: Appearance.font.size.md
-
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        Net.scan();
-                        ShellState.toggle("network");
-                    }
+                Icon {
+                    text: Audio.icon()
+                    color: Audio.muted ? Theme.error : Theme.textSecondary
+                    size: Appearance.font.size.md
                 }
-            }
 
-            Icon {
-                text: Audio.icon()
-                color: Audio.muted ? Theme.error : Theme.textSecondary
-                size: Appearance.font.size.md
-            }
+                Icon {
+                    text: Notifs.doNotDisturb ? "notifications_off" : Notifs.count > 0 ? "notifications_active" : "notifications"
+                    color: Notifs.count > 0 && !Notifs.doNotDisturb ? Theme.accent : Theme.textSecondary
+                    size: Appearance.font.size.md
 
-            Icon {
-                text: Notifs.doNotDisturb ? "notifications_off" : Notifs.count > 0 ? "notifications_active" : "notifications"
-                color: Notifs.count > 0 && !Notifs.doNotDisturb ? Theme.accent : Theme.textSecondary
-                size: Appearance.font.size.md
-
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: ShellState.toggle("notifications")
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: ShellState.toggle("notifications")
+                    }
                 }
             }
         }

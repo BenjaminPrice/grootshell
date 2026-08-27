@@ -18,6 +18,7 @@ import qs.modules.wallpaper
 import qs.modules.network
 import qs.modules.clipboard
 import qs.modules.switcher
+import qs.modules.keybinds
 
 // grootshell.
 //
@@ -163,6 +164,11 @@ ShellRoot {
                         id: switcher
                         anchors.centerIn: parent
                     }
+
+                    KeybindsModal {
+                        id: keybindsModal
+                        anchors.centerIn: parent
+                    }
                 }
 
                 // Everything that should accept a click. A panel that is closed
@@ -199,6 +205,9 @@ ShellRoot {
                     }
                     Region {
                         item: switcher.visible ? switcher : null
+                    }
+                    Region {
+                        item: keybindsModal.visible ? keybindsModal : null
                     }
                     // The OSD is deliberately absent: it is feedback, not a
                     // control, and it appears exactly when your pointer might be
@@ -295,6 +304,13 @@ ShellRoot {
         target: "switcher"
         function toggle(): void {
             ShellState.toggle("switcher");
+        }
+    }
+
+    IpcHandler {
+        target: "keybinds"
+        function toggle(): void {
+            ShellState.toggle("keybinds");
         }
     }
 
