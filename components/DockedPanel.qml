@@ -135,14 +135,23 @@ Item {
 
     // --- Junction fillets ---------------------------------------------------
     //
-    // Positioned at the frame's inner line, just outside the panel, one at each
-    // side. Their removed quarter faces away from the panel so the curve sweeps
-    // from the panel's edge out along the frame.
+    // One in each notch beside the panel, at the frame's inner line.
+    //
+    // The corner named is the quarter-disc that gets REMOVED, not the corner the
+    // fillet occupies — those are opposites, and conflating them rotates every
+    // fillet by 180° and leaves the 90° step it was meant to smooth. The filled
+    // quadrant is always the one touching BOTH the panel and the frame band, so
+    // the removed one is always diagonally opposite that.
+    //
+    // Bottom-docked, left notch: the panel is to the right and the frame is
+    // below, so the fill hugs bottom-right and the disc comes out of top-left.
+
+    // Horizontal edges: a fillet either side of the panel.
     InverseCorner {
         visible: root.horizontal
         size: root.fillet
         color: root.surface
-        corner: root.edge === "bottom" ? "bottomRight" : "topRight"
+        corner: root.edge === "bottom" ? "topLeft" : "bottomLeft"
 
         x: -root.fillet
         y: root.edge === "bottom" ? root.height - root.frameThickness - root.fillet : root.frameThickness
@@ -152,17 +161,18 @@ Item {
         visible: root.horizontal
         size: root.fillet
         color: root.surface
-        corner: root.edge === "bottom" ? "bottomLeft" : "topLeft"
+        corner: root.edge === "bottom" ? "topRight" : "bottomRight"
 
         x: root.width
         y: root.edge === "bottom" ? root.height - root.frameThickness - root.fillet : root.frameThickness
     }
 
+    // Vertical edges: a fillet above and below.
     InverseCorner {
         visible: !root.horizontal
         size: root.fillet
         color: root.surface
-        corner: root.edge === "right" ? "bottomRight" : "bottomLeft"
+        corner: root.edge === "right" ? "topLeft" : "topRight"
 
         y: -root.fillet
         x: root.edge === "right" ? root.width - root.frameThickness - root.fillet : root.frameThickness
@@ -172,7 +182,7 @@ Item {
         visible: !root.horizontal
         size: root.fillet
         color: root.surface
-        corner: root.edge === "right" ? "topRight" : "topLeft"
+        corner: root.edge === "right" ? "bottomLeft" : "bottomRight"
 
         y: root.height
         x: root.edge === "right" ? root.width - root.frameThickness - root.fillet : root.frameThickness

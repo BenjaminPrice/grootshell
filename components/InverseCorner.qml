@@ -65,21 +65,28 @@ Item {
             fillColor: root.color
             strokeWidth: 0
 
-            // Qt measures angles from 3 o'clock, positive sweeping clockwise on
-            // screen. With the disc centred on the top-left, angle 0 is the
-            // square's top-right and angle 90 its bottom-left.
+            // PathArc rather than PathAngleArc: it names the END POINT, so the
+            // path is closed and well-formed no matter what the direction flag
+            // does. With a swept angle the endpoint is implied by a sweep
+            // convention, and getting that backwards puts the arc outside the
+            // square entirely.
+            //
+            // Start at the square's top-right and finish at its bottom-left,
+            // along the circle of radius `size` centred on the top-left. That
+            // arc passes through the middle of the square, which is the boundary
+            // of the disc being removed.
             PathMove {
                 x: root.size
                 y: 0
             }
 
-            PathAngleArc {
-                centerX: 0
-                centerY: 0
+            PathArc {
+                x: 0
+                y: root.size
                 radiusX: root.size
                 radiusY: root.size
-                startAngle: 0
-                sweepAngle: 90
+                // Clockwise on screen, where y increases downward.
+                direction: PathArc.Clockwise
             }
 
             PathLine {
