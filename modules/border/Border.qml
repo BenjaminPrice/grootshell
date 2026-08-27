@@ -27,7 +27,12 @@ Item {
 
     // Game mode collapses the frame to nothing. It is chrome, and during a game
     // chrome is bandwidth spent on something nobody is looking at.
-    readonly property int effectiveThickness: GameMode.enabled ? 0 : thickness
+    //
+    // NOT readonly, despite being a pure function of its inputs: a Behavior
+    // animates writes, and a read-only property is never written to — it is
+    // re-evaluated. Declaring this readonly makes the Behavior below a load-time
+    // error rather than a no-op.
+    property int effectiveThickness: GameMode.enabled ? 0 : thickness
 
     Behavior on effectiveThickness {
         enabled: Appearance.anim.enabled

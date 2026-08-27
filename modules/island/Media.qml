@@ -155,20 +155,20 @@ Item {
 
                 Control {
                     icon: "skip_previous"
-                    enabled: Players.active?.canGoPrevious ?? false
+                    interactive: Players.active?.canGoPrevious ?? false
                     onActivated: Players.previous()
                 }
 
                 Control {
                     icon: Players.playing ? "pause" : "play_arrow"
                     primary: true
-                    enabled: Players.active?.canTogglePlaying ?? false
+                    interactive: Players.active?.canTogglePlaying ?? false
                     onActivated: Players.playPause()
                 }
 
                 Control {
                     icon: "skip_next"
-                    enabled: Players.active?.canGoNext ?? false
+                    interactive: Players.active?.canGoNext ?? false
                     onActivated: Players.next()
                 }
             }
@@ -180,7 +180,7 @@ Item {
 
         property string icon
         property bool primary: false
-        property bool enabled: true
+        property bool interactive: true
 
         signal activated
 
@@ -188,7 +188,7 @@ Item {
         implicitHeight: implicitWidth
         radius: width / 2
         color: primary ? Theme.accentContainer : hover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
-        opacity: enabled ? 1 : 0.35
+        opacity: interactive ? 1 : 0.35
 
         Behavior on color {
             enabled: Appearance.anim.enabled
@@ -209,7 +209,7 @@ Item {
             id: hover
             anchors.fill: parent
             hoverEnabled: true
-            enabled: control.enabled
+            enabled: control.interactive
             cursorShape: Qt.PointingHandCursor
             onClicked: control.activated()
         }

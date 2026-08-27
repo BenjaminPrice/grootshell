@@ -39,7 +39,7 @@ Panel {
 
             Action {
                 icon: "clear_all"
-                enabled: Notifs.count > 0
+                interactive: Notifs.count > 0
                 onActivated: Notifs.clear()
             }
         }
@@ -163,7 +163,7 @@ Panel {
 
         property string icon
         property bool active: false
-        property bool enabled: true
+        property bool interactive: true
 
         signal activated
 
@@ -171,7 +171,7 @@ Panel {
         implicitHeight: 30
         radius: width / 2
         color: active ? Theme.accentContainer : actionHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
-        opacity: enabled ? 1 : 0.35
+        opacity: interactive ? 1 : 0.35
 
         Icon {
             anchors.centerIn: parent
@@ -184,7 +184,7 @@ Panel {
             id: actionHover
             anchors.fill: parent
             hoverEnabled: true
-            enabled: action.enabled
+            enabled: action.interactive
             cursorShape: Qt.PointingHandCursor
             onClicked: action.activated()
         }

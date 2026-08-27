@@ -26,7 +26,6 @@ Item {
 
     // Content goes here; the panel sizes itself to it.
     default property alias content: inner.data
-    property alias padding: inner.anchors.margins
 
     visible: open || hideDelay.running
     opacity: open ? 1 : 0
