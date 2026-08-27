@@ -76,33 +76,12 @@ Panel {
         //
         // Only happens on a dev checkout with no NixOS module behind it. Say why
         // rather than showing an empty box.
-        ColumnLayout {
+        EmptyState {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !Keybinds.available
-            spacing: Appearance.spacing.sm
-
-            Item {
-                Layout.fillHeight: true
-            }
-
-            StyledText {
-                Layout.alignment: Qt.AlignHCenter
-                text: "No keybind list found"
-                color: Theme.textSecondary
-                font.pixelSize: Appearance.font.size.md
-            }
-
-            StyledText {
-                Layout.alignment: Qt.AlignHCenter
-                text: `Expected ${Keybinds.path}, which the NixOS module generates.`
-                color: Theme.textMuted
-                font.pixelSize: Appearance.font.size.xs
-            }
-
-            Item {
-                Layout.fillHeight: true
-            }
+            title: "No keybind list found"
+            detail: `Expected ${Keybinds.path}, which the NixOS module generates.`
         }
 
         // --- Categories -----------------------------------------------------

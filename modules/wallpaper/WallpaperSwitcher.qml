@@ -121,33 +121,12 @@ DockedPanel {
         }
 
         // --- Empty ----------------------------------------------------------
-        ColumnLayout {
+        EmptyState {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: Wallpapers.count === 0
-            spacing: Appearance.spacing.xs
-
-            Item {
-                Layout.fillHeight: true
-            }
-
-            StyledText {
-                Layout.alignment: Qt.AlignHCenter
-                text: "No wallpapers found"
-                color: Theme.textSecondary
-                font.pixelSize: Appearance.font.size.md
-            }
-
-            StyledText {
-                Layout.alignment: Qt.AlignHCenter
-                text: `Put images in ${Config.wallpaper.directory.replace(Quickshell.env("HOME"), "~")}`
-                color: Theme.textMuted
-                font.pixelSize: Appearance.font.size.xs
-            }
-
-            Item {
-                Layout.fillHeight: true
-            }
+            title: "No wallpapers found"
+            detail: `Put images in ${Config.wallpaper.directory.replace(Quickshell.env("HOME"), "~")}`
         }
 
         // --- Strip ----------------------------------------------------------

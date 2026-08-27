@@ -74,31 +74,12 @@ DockedPanel {
         }
 
         // --- Empty ----------------------------------------------------------
-        ColumnLayout {
+        EmptyState {
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: Notifs.count === 0
-
-            Item {
-                Layout.fillHeight: true
-            }
-
-            Icon {
-                Layout.alignment: Qt.AlignHCenter
-                text: "check_circle"
-                color: Theme.textMuted
-                size: Appearance.font.size.xxl
-            }
-
-            StyledText {
-                Layout.alignment: Qt.AlignHCenter
-                text: "Nothing to see"
-                color: Theme.textMuted
-            }
-
-            Item {
-                Layout.fillHeight: true
-            }
+            icon: "check_circle"
+            title: "Nothing to see"
         }
 
         // --- List -----------------------------------------------------------
