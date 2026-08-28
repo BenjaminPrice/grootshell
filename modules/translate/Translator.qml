@@ -21,9 +21,11 @@ Item {
 
     property bool active: false
 
-    // Japanese first because that is what groot's fcitx5/Mozc setup is for; the
-    // interesting direction is usually reading something, not writing it.
-    property string from: "auto"
+    // Japanese to English by default, not Detect. This machine's fcitx5/Mozc
+    // setup exists for Japanese and the usual job is reading it, so naming the
+    // source outright is both what you want and one less thing for the endpoint
+    // to get wrong on a short string — "detect" on two kana is a guess.
+    property string from: "ja"
     property string to: "en"
 
     readonly property var languages: [
@@ -52,6 +54,11 @@ Item {
     property string result: ""
     property string status: ""
 
+    // What the endpoint reported the source to be. Only meaningful while `from`
+    // is "auto", and only used to give the swap a concrete language to put in
+    // the target slot.
+    property string detected: ""
+
     // The endpoint is Google's unofficial gtx one, and it throttles by IP. A
     // 600ms debounce while someone types is enough to earn a 429, and once
     // earned it persists for a while — so the defence is to ask less often
@@ -75,6 +82,36 @@ Item {
     function grabFocus(): void {
         if (root.active)
             source.forceActiveFocus();
+    }
+
+    // Swap the two languages, and the two texts with them.
+    //
+    // Moving the result into the input is the point: swapping mid-task almost
+    // always means "now go back the other way with what I just got", and
+    // leaving the box holding the original would translate the wrong string.
+    //
+    // Detect cannot be a target, so swapping out of it would produce an invalid
+    // pair. It resolves to whatever the endpoint just reported instead, and
+    // falls back to English when nothing has been translated yet.
+    function swap(): void {
+        const nextTo = root.from === "auto" ? (root.detected || "en") : root.from;
+
+        root.from = root.to;
+        root.to = nextTo;
+
+        if (root.result) {
+            const carried = root.result;
+            root.result = "";
+            source.text = carried;
+            // Straight through rather than via the debounce: this is a
+            // deliberate press, not typing.
+            root.translate();
+        } else if (source.text.trim()) {
+            // Nothing to carry back — a failure, or a swap before the first
+            // result landed — but the input is now pointed the other way and
+            // still needs translating.
+            root.translate();
+        }
     }
 
     function translate(): void {
@@ -143,6 +180,8 @@ Item {
                 root.result = parsed[0].map(part => part[0]).join("");
                 root.status = "";
                 root.backoff = 0;
+                // Index 2 is the detected source language.
+                root.detected = parsed[2] ?? "";
             } catch (e) {
                 root.status = "Could not read the response";
                 console.warn("grootshell: translate parse failed —", e, "body:", (xhr.responseText || "").slice(0, 200));
@@ -169,10 +208,23 @@ Item {
                 }
             }
 
+            // The arrow is the swap control. It already points from one
+            // language to the other, so making it the thing that reverses them
+            // needs no new affordance — just a cursor and a hover state to say
+            // it is pressable.
             Icon {
-                text: "arrow_forward"
-                color: Theme.textMuted
-                size: Appearance.font.size.sm
+                text: "swap_horiz"
+                color: swapHover.containsMouse ? Theme.accent : Theme.textMuted
+                size: Appearance.font.size.md
+
+                MouseArea {
+                    id: swapHover
+                    anchors.fill: parent
+                    anchors.margins: -Appearance.padding.xs
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.swap()
+                }
             }
 
             Picker {
