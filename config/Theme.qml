@@ -245,23 +245,42 @@ Singleton {
         }
     }
 
-    property color onAccent: c.onAccent ?? "#32285e"
+    // --- The `on*` roles, and why they are shaped differently ---------------
+    //
+    // A Behavior may NOT be attached to a property whose name begins with "on".
+    // `Behavior on onAccent { ... }` parses, passes qmlformat, and then segfaults
+    // the QML engine during object construction — "on" is the signal-handler
+    // prefix, and the interceptor's target resolution walks into that path and
+    // dies in QQmlData::deferData. It took the whole shell down.
+    //
+    // Material 3 names these roles onAccent / onError and they are read that way
+    // in thirty places, so renaming the public API to dodge a parser collision
+    // would be the tail wagging the dog. Instead the ANIMATED property is named
+    // `ink*` — the foreground that goes on a given fill — and the Material name
+    // is a plain alias of it. Call sites never learn the difference.
+    //
+    // scripts/qml-audit.py has a rule for this now.
+    property color inkAccent: c.onAccent ?? "#32285e"
 
-    Behavior on onAccent {
+    Behavior on inkAccent {
         enabled: root.easing
         ColorAnimation {
             duration: Appearance.anim.theme
         }
     }
 
-    property color onAccentContainer: c.onAccentContainer ?? "#ffffff"
+    readonly property color onAccent: root.inkAccent
 
-    Behavior on onAccentContainer {
+    property color inkAccentContainer: c.onAccentContainer ?? "#ffffff"
+
+    Behavior on inkAccentContainer {
         enabled: root.easing
         ColorAnimation {
             duration: Appearance.anim.theme
         }
     }
+
+    readonly property color onAccentContainer: root.inkAccentContainer
 
     // Secondary text ON a container fill — the generic name under an app in the
     // launcher, the detail line under a network. Dimmed to keep the hierarchy
@@ -306,14 +325,17 @@ Singleton {
         }
     }
 
-    property color onError: c.onError ?? "#690005"
+    // Aliased for the same reason as onAccent above.
+    property color inkError: c.onError ?? "#690005"
 
-    Behavior on onError {
+    Behavior on inkError {
         enabled: root.easing
         ColorAnimation {
             duration: Appearance.anim.theme
         }
     }
+
+    readonly property color onError: root.inkError
 
     // Not animated: it is black in every palette this generator produces, and a
     // shadow is the one thing whose job is to be unnoticed.

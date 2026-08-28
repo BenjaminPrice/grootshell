@@ -12,6 +12,16 @@ Each rule here exists because it shipped:
                         never written to, only re-evaluated, so attaching one is
                         a hard error. Shipped twice.
 
+  behavior-on-handler-name
+                        A Behavior on a property whose name begins with "on".
+                        "on" is the signal-handler prefix, so the interceptor's
+                        target resolution walks into that path and SEGFAULTS the
+                        engine mid-construction — no QML error, just a crash loop
+                        and a stack trace naming no file of ours. Shipped once,
+                        on Theme's onAccent/onAccentContainer/onError. Animate a
+                        differently-named backing property and alias the
+                        Material 3 name to it.
+
   deep-alias            `property alias x: id.group.member` cannot resolve a
                         member of a value-type group such as anchors.
 
@@ -140,6 +150,34 @@ COMPONENT = re.compile(rf"component\s+\w+\s*:\s*{ITEM_DERIVED}\s*\{{")
 PROPERTY = re.compile(r"property\s+\w+\s+(\w+)")
 
 
+COMMENT_LINE = re.compile(r"^[ \t]*//.*$", re.M)
+COMMENT_BLOCK = re.compile(r"/\*.*?\*/", re.S)
+
+
+def strip_comments(text: str) -> str:
+    """Blank out comments, preserving length and line breaks.
+
+    Every rule here is a regex over source text, so a comment that DESCRIBES a
+    mistake reads exactly like the mistake. That is not hypothetical: the note in
+    config/Theme.qml explaining why you must not write `Behavior on onAccent`
+    was itself reported as a `Behavior on onAccent`.
+
+    Characters are replaced with spaces rather than removed so that every byte
+    offset — and therefore every reported line number — stays exactly where it
+    was.
+
+    Only WHOLE-LINE `//` comments are stripped. A trailing comment after code
+    cannot be told from a `//` inside a string literal without parsing QML
+    properly, and `"https://..."` is far too common to risk mangling. Whole-line
+    comments are where the prose lives, which is all this needs to reach.
+    """
+
+    def blank(match: re.Match[str]) -> str:
+        return "".join("\n" if ch == "\n" else " " for ch in match.group(0))
+
+    return COMMENT_LINE.sub(blank, COMMENT_BLOCK.sub(blank, text))
+
+
 def line_of(text: str, index: int) -> int:
     return text.count("\n", 0, index) + 1
 
@@ -161,12 +199,12 @@ def required_by_type(files: list[Path]) -> dict[str, set[str]]:
     """Map each local component name to the required properties it declares."""
     out: dict[str, set[str]] = {}
     for path in files:
-        out[path.stem] = set(REQUIRED.findall(path.read_text(encoding="utf-8")))
+        out[path.stem] = set(REQUIRED.findall(strip_comments(path.read_text(encoding="utf-8"))))
     return out
 
 
 def audit(path: Path, required: dict[str, set[str]] | None = None) -> list[tuple[int, str, str]]:
-    text = path.read_text(encoding="utf-8")
+    text = strip_comments(path.read_text(encoding="utf-8"))
     findings: list[tuple[int, str, str]] = []
 
     for match in DELEGATE.finditer(text):
@@ -230,6 +268,31 @@ def audit(path: Path, required: dict[str, set[str]] | None = None) -> list[tuple
                     line_of(text, match.start()),
                     "behavior-on-readonly",
                     f"Behavior on '{match.group(1)}', which is declared readonly",
+                )
+            )
+        # A Behavior on a property whose name starts with "on" SEGFAULTS the QML
+        # engine while the object is being constructed. "on" is the
+        # signal-handler prefix, and the interceptor's target resolution walks
+        # into that path and dies in QQmlData::deferData.
+        #
+        # It parses, and qmlformat is happy with it, so nothing else in the
+        # toolchain sees it — this took the whole shell down with a crash loop
+        # and a stack trace that named no file of ours. Bisected to a one-line
+        # reproduction: a single Behavior on a property called `onTone`.
+        #
+        # The fix is not to rename the role. Material 3 calls these onAccent and
+        # onError and the shell reads them that way everywhere. Animate a
+        # backing property named something else — config/Theme.qml uses `ink*` —
+        # and alias the Material name to it.
+        if re.match(r"on[A-Z]", target):
+            findings.append(
+                (
+                    line_of(text, match.start()),
+                    "behavior-on-handler-name",
+                    f"Behavior on '{match.group(1)}': a property whose name begins "
+                    "with 'on' collides with the signal-handler prefix and crashes "
+                    "the engine at construction. Animate a differently-named "
+                    "backing property and alias this one to it",
                 )
             )
 
