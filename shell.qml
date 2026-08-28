@@ -128,6 +128,41 @@ ShellRoot {
                 }
             }
 
+            // Space reserved for the side panels, so tiled windows move aside
+            // rather than being covered.
+            //
+            // One surface per panel rather than one per edge: each carries its
+            // own zone and the compositor sums them, so two right-edge panels
+            // open at once reserve the sum without any arithmetic here.
+            //
+            // Side panels only. The island drops from the bar in the middle of
+            // the screen, and a zone is a full-edge strip — reserving for it
+            // would push every window down to clear something that only covers
+            // the middle third.
+            EdgeReservation {
+                reservationScreen: scope.modelData
+                edge: "right"
+                depth: notificationCentre.depth
+                reserve: notificationCentre.open
+            }
+
+            EdgeReservation {
+                reservationScreen: scope.modelData
+                edge: "left"
+                depth: translatePanel.depth
+                reserve: translatePanel.open
+            }
+
+            EdgeReservation {
+                reservationScreen: scope.modelData
+                edge: "right"
+                depth: osd.depth
+                // wantsInput, not showing: the readout also flashes on every
+                // volume change, and reflowing the desktop for that would be
+                // absurd. This reserves only while the pointer is on it.
+                reserve: osd.wantsInput
+            }
+
             PanelWindow {
                 id: overlay
 

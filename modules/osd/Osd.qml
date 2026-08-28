@@ -39,6 +39,12 @@ Item {
     // the body only while the pointer is actually on it, so a readout that
     // flashed up from a keypress never swallows a click.
     readonly property alias trigger: edgeZone
+
+    // For the edge reservation in shell.qml. Reserving is bound to wantsInput
+    // rather than to `showing`: showing includes the flash a volume key
+    // produces, and reflowing every window each time the volume changes would
+    // be far worse than the overlap it avoids.
+    readonly property int depth: panel.depth
     readonly property bool wantsInput: !GameMode.enabled && (root.hovering || linger.running)
 
     implicitWidth: panel.implicitWidth
