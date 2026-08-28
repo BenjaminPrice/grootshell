@@ -23,7 +23,15 @@ Singleton {
     // Guards against regenerating from the same image twice — the binding below
     // fires on any assignment, and the wallpaper service reasserts `current`
     // when the folder model reloads.
+    //
+    // Set only on a SUCCESSFUL run, never optimistically at launch. Recording
+    // the attempt instead of the result means one failure is permanent: the
+    // wallpaper is already marked done, so re-picking it is deduped away and
+    // the only route back is a restart. A failed generation must leave no trace.
     property string lastGenerated: ""
+
+    // The image the in-flight run is for, promoted to lastGenerated on exit 0.
+    property string pending: ""
 
     // Forced regeneration, ignoring the dedupe — for the IPC handler, and for
     // any case where the file on disk is wrong rather than merely stale.
@@ -35,9 +43,10 @@ Singleton {
     function generate(path: string): void {
         if (!path || path === root.lastGenerated || generator.running)
             return;
-        root.lastGenerated = path;
+        root.pending = path;
         generator.command = ["grootshell-theme", path];
         generator.running = true;
+        console.log("grootshell: generating colours from", path);
     }
 
     Connections {
@@ -64,13 +73,31 @@ Singleton {
         }
     }
 
+    // matugen runs --quiet, so anything it does say is a real problem and worth
+    // repeating into the journal. Without this the generator failed for a week
+    // behind a single WARN from quickshell, and the only symptom anyone saw was
+    // a theme that would not change.
     Process {
         id: generator
         running: false
 
+        stderr: StdioCollector {
+            onStreamFinished: {
+                if (text.trim())
+                    console.warn("grootshell-theme:", text.trim());
+            }
+        }
+
         onExited: code => {
-            if (code !== 0)
-                console.warn("grootshell-theme failed with exit code", code);
+            if (code === 0) {
+                root.lastGenerated = root.pending;
+                console.log("grootshell: colours generated from", root.pending);
+            } else {
+                // Deliberately does NOT record pending, so the same wallpaper can
+                // be retried rather than being deduped away forever.
+                console.warn("grootshell-theme exited", code, "for", root.pending);
+            }
+            root.pending = "";
         }
     }
 }
