@@ -97,9 +97,11 @@ Item {
 
                 StyledText {
                     // Hard-capped rather than fillWidth: this must never grow
-                    // into the centre group, which is anchored independently and
-                    // would simply be overlapped.
-                    Layout.maximumWidth: Math.max(0, (strip.width - centre.width) / 2 - Appearance.spacing.xl * 2)
+                    // into the clock, which is centred on the screen from
+                    // another surface entirely and would simply be overlapped.
+                    // A share of the width rather than an exact gap, because the
+                    // thing it must not reach is not this window's to measure.
+                    Layout.maximumWidth: Math.round(strip.width * 0.3)
                     text: titlePill.title
                     color: Theme.textSecondary
                     elide: Text.ElideRight
@@ -108,44 +110,15 @@ Item {
         }
 
         // --- Centre ---------------------------------------------------------
-        RowLayout {
-            id: centre
-
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Appearance.spacing.sm
-
-            Pill {
-                id: clock
-
-                visible: Config.bar.showClock
-                hpad: Appearance.padding.xl
-                // Fills with the accent while the island is down, so the pill
-                // reads as the handle the drawer is hanging from.
-                color: ShellState.island ? Theme.accentContainer : clockHover.containsMouse ? Theme.surfaceContainerHigh : Theme.frame
-
-                Behavior on color {
-                    enabled: Appearance.anim.enabled
-                    ColorAnimation {
-                        duration: Appearance.anim.fast
-                    }
-                }
-
-                StyledText {
-                    text: Time.format(Config.bar.clockFormat)
-                    color: ShellState.island ? Theme.onAccentContainer : Theme.text
-                    font.pixelSize: Appearance.font.size.md
-                }
-
-                MouseArea {
-                    id: clockHover
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: ShellState.toggle("island")
-                }
-            }
-        }
+        //
+        // Nothing here. The clock pill is drawn by modules/island, in the
+        // overlay, because it does not stay a pill: opening the dashboard grows
+        // that same capsule into the panel. An object cannot morph across two
+        // layer surfaces, and the bar is its own surface — it exists to reserve
+        // space — so the clock has to live where the panel lives.
+        //
+        // The bar keeps the reservation and the two side groups, and the middle
+        // of it is deliberately empty.
 
         // --- Right ----------------------------------------------------------
         //

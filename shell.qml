@@ -245,11 +245,15 @@ ShellRoot {
                     // Docked into the frame rather than floating over it. Each
                     // of these anchors to the screen edge it belongs to, inset
                     // past the bar's reserved zone at the top.
+                    // Always on screen, because at rest it IS the clock pill —
+                    // it only becomes the dashboard when opened. It owns its own
+                    // top margin, which travels from the pill's resting line up
+                    // to the screen edge as it grows.
                     Island {
                         id: island
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.top: parent.top
-                        anchors.topMargin: scope.topDock
+                        anchors.topMargin: island.topOffset
                     }
 
                     Launcher {
