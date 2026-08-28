@@ -24,6 +24,11 @@ Each rule here exists because it shipped:
                         file importing both QtQuick and this module then has two.
                         Shipped once, as State.qml against QtQuick's State.
 
+  duplicate-id          The same id twice in one file. QML ids are unique per
+                        component; qmlformat accepts it and the engine rejects
+                        it at load. Shipped once, from a delegate being wrapped
+                        in a new item that kept the inner one's id.
+
   reserved-word         A property named with a word QML reserves. Parses, then
                         fails at load with "Reserved keyword ... cannot be used
                         as a QML identifier". Shipped once, as `transient`.
@@ -111,6 +116,10 @@ BUILTIN_TYPES = frozenset(
 )
 
 READONLY = re.compile(r"readonly\s+property\s+\w+\s+(\w+)")
+# Not anchored to the line start: `Rectangle { id: row }` is legal and was how
+# the duplicate that shipped was written. The lookbehind keeps it from matching
+# a property whose name merely ends in "id", such as `elementId:`.
+ID_LINE = re.compile(r"(?<![\w.])id:\s*(\w+)")
 REQUIRED = re.compile(r"required\s+property\s+[\w.<>]+\s+(\w+)")
 DELEGATE = re.compile(r"delegate:\s*([A-Z]\w*)\s*\{")
 BEHAVIOR = re.compile(r"Behavior\s+on\s+([\w.]+)")
@@ -164,6 +173,22 @@ def audit(path: Path, required: dict[str, set[str]] | None = None) -> list[tuple
                         "redeclaring it shadows the property that type reads",
                     )
                 )
+
+    seen_ids: dict[str, int] = {}
+    for match in ID_LINE.finditer(text):
+        name = match.group(1)
+        line = line_of(text, match.start())
+        if name in seen_ids:
+            findings.append(
+                (
+                    line,
+                    "duplicate-id",
+                    f"id '{name}' is already used on line {seen_ids[name]}; "
+                    "ids must be unique within a file",
+                )
+            )
+        else:
+            seen_ids[name] = line
 
     for prop in PROPERTY.finditer(text):
         if prop.group(1) in RESERVED_WORDS:

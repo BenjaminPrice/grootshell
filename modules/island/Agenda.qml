@@ -26,7 +26,40 @@ Item {
 
     // Today lists what is LEFT of today; any other day lists all of it. "Today
     // from midnight" is a history lesson, not an agenda.
+    //
+    // Note that the today list runs PAST today — upcoming() takes the next
+    // events whenever they are, so a quiet week shows next Tuesday's standup.
+    // Which is why the rows carry date headers below: an entry reading 09:00
+    // with nothing else is a promise about the wrong day.
     readonly property var items: root.isToday ? Calendar.upcoming(20) : Calendar.on(root.day)
+
+    // Whether row `i` opens a new day, and so needs a date above it. The first
+    // row is compared against the day being listed, so an "Up next" list that
+    // starts tomorrow says so rather than looking like today.
+    function startsNewDay(i: int): bool {
+        const items = root.items;
+        if (i < 0 || i >= items.length)
+            return false;
+        const day = new Date(items[i].start);
+        if (i === 0)
+            return !Calendar.sameDay(day, root.day);
+        return !Calendar.sameDay(day, new Date(items[i - 1].start));
+    }
+
+    // Today and tomorrow are named; anything further out gets its date, because
+    // "Thursday" stops being useful once it could be either of two Thursdays.
+    function dayLabel(when: date): string {
+        const today = Time.now;
+        const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+        if (Calendar.sameDay(when, today))
+            return "Today";
+        if (Calendar.sameDay(when, tomorrow))
+            return "Tomorrow";
+        const sixDays = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 6);
+        if (when <= sixDays)
+            return Qt.formatDateTime(when, "dddd d MMM");
+        return Qt.formatDateTime(when, "ddd d MMM yyyy");
+    }
 
     function timeOf(event): string {
         if (event.allDay)
@@ -93,66 +126,88 @@ Item {
             spacing: 2
             model: root.items
 
-            delegate: Rectangle {
-                id: row
+            delegate: Column {
+                id: rowWrap
 
                 required property var modelData
+                required property int index
 
                 width: ListView.view.width
-                implicitHeight: rowLayout.implicitHeight + Appearance.padding.sm * 2
-                radius: Appearance.rounding.normal
-                color: rowHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
+                spacing: 2
 
-                RowLayout {
-                    id: rowLayout
-                    anchors.fill: parent
-                    anchors.margins: Appearance.padding.sm
-                    spacing: Appearance.spacing.sm
-
-                    // Which calendar, as a bar rather than a label. With several
-                    // feeds merged the question is "is that work or not", and a
-                    // name per row would cost more width than the title has.
-                    Rectangle {
-                        Layout.preferredWidth: 3
-                        Layout.preferredHeight: rowLayout.implicitHeight
-                        radius: 1.5
-                        color: Calendar.colourFor(row.modelData.calendar ?? "")
-                        visible: Calendar.calendars.length > 1
-                    }
-
-                    StyledText {
-                        text: root.timeOf(row.modelData)
-                        color: Theme.textMuted
-                        font.pixelSize: Appearance.font.size.xs
-                        mono: true
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: row.modelData.summary
-                        color: Theme.text
-                        font.pixelSize: Appearance.font.size.xs
-                        elide: Text.ElideRight
-                    }
-
-                    // A marker rather than the link itself: the row is a summary,
-                    // and one that renders a button per meeting service would be
-                    // wider than the title it is describing.
-                    Icon {
-                        visible: (row.modelData.links?.length ?? 0) > 0
-                        text: "videocam"
-                        color: Theme.accent
-                        size: Appearance.font.size.xs
-                    }
+                // The date, but only where the day actually changes. Repeating
+                // it on every row would be noise on the common case of several
+                // things in one afternoon.
+                StyledText {
+                    width: parent.width
+                    visible: root.startsNewDay(rowWrap.index)
+                    topPadding: rowWrap.index === 0 ? 0 : Appearance.spacing.xs
+                    text: root.dayLabel(new Date(rowWrap.modelData.start))
+                    color: Theme.textSecondary
+                    font.pixelSize: Appearance.font.size.xs
                 }
 
-                MouseArea {
-                    id: rowHover
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.selected = row.modelData
-                }
+                Rectangle {
+                    id: row
+
+                    readonly property var modelData: rowWrap.modelData
+
+                    width: parent.width
+                    implicitHeight: rowLayout.implicitHeight + Appearance.padding.sm * 2
+                    radius: Appearance.rounding.normal
+                    color: rowHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
+
+                    RowLayout {
+                        id: rowLayout
+                        anchors.fill: parent
+                        anchors.margins: Appearance.padding.sm
+                        spacing: Appearance.spacing.sm
+
+                        // Which calendar, as a bar rather than a label. With several
+                        // feeds merged the question is "is that work or not", and a
+                        // name per row would cost more width than the title has.
+                        Rectangle {
+                            Layout.preferredWidth: 3
+                            Layout.preferredHeight: rowLayout.implicitHeight
+                            radius: 1.5
+                            color: Calendar.colourFor(row.modelData.calendar ?? "")
+                            visible: Calendar.calendars.length > 1
+                        }
+
+                        StyledText {
+                            text: root.timeOf(row.modelData)
+                            color: Theme.textMuted
+                            font.pixelSize: Appearance.font.size.xs
+                            mono: true
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: row.modelData.summary
+                            color: Theme.text
+                            font.pixelSize: Appearance.font.size.xs
+                            elide: Text.ElideRight
+                        }
+
+                        // A marker rather than the link itself: the row is a summary,
+                        // and one that renders a button per meeting service would be
+                        // wider than the title it is describing.
+                        Icon {
+                            visible: (row.modelData.links?.length ?? 0) > 0
+                            text: "videocam"
+                            color: Theme.accent
+                            size: Appearance.font.size.xs
+                        }
+                    }
+
+                    MouseArea {
+                        id: rowHover
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.selected = row.modelData
+                    }
+                            }
             }
         }
     }
