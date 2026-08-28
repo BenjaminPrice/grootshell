@@ -107,6 +107,12 @@ Item {
     // Keys the agenda claims. Returns true when it consumed one, so the island
     // knows not to treat it as a tab switch.
     //
+    // Left and Right are NOT claimed, in either state. They belong to the island
+    // for moving between tabs, and claiming Right to open an entry meant arrowing
+    // from the dashboard towards Media opened whatever the cursor was sitting on
+    // first. Vertical keys move within a tab, horizontal keys move between them,
+    // and nothing here gets to blur that.
+    //
     // Escape is claimed ONLY while a detail is open, where it means "back to the
     // list". Everywhere else it falls through to shell.qml, which closes the
     // panel — a modal that swallows Escape on a host with no local console is
@@ -116,7 +122,6 @@ Item {
             switch (event.key) {
             case Qt.Key_Escape:
             case Qt.Key_Backspace:
-            case Qt.Key_Left:
                 root.selected = null;
                 return true;
             case Qt.Key_Return:
@@ -138,7 +143,6 @@ Item {
             return true;
         case Qt.Key_Return:
         case Qt.Key_Enter:
-        case Qt.Key_Right:
             if (root.items.length > 0) {
                 root.selected = root.items[Math.min(root.cursor, root.items.length - 1)];
                 return true;
