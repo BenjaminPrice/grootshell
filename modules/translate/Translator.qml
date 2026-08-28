@@ -149,7 +149,7 @@ Item {
                 font.pixelSize: Appearance.font.size.sm
                 color: Theme.text
                 selectionColor: Theme.accentContainer
-                selectedTextColor: Theme.text
+                selectedTextColor: Theme.onAccentContainer
                 wrapMode: TextEdit.Wrap
                 clip: true
 

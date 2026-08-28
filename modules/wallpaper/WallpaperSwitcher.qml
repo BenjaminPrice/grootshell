@@ -218,13 +218,13 @@ DockedPanel {
 
                             Icon {
                                 text: "check"
-                                color: Theme.accent
+                                color: Theme.onAccentContainer
                                 size: Appearance.font.size.xs
                             }
 
                             StyledText {
                                 text: "Current"
-                                color: Theme.accent
+                                color: Theme.onAccentContainer
                                 font.pixelSize: Appearance.font.size.xs
                             }
                         }

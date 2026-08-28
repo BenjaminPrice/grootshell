@@ -103,7 +103,7 @@ Item {
                     id: clockText
                     anchors.centerIn: parent
                     text: Time.format(Config.bar.clockFormat)
-                    color: ShellState.island ? Theme.accent : Theme.text
+                    color: ShellState.island ? Theme.onAccentContainer : Theme.text
                     font.pixelSize: Appearance.font.size.md
                 }
 

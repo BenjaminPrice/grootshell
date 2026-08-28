@@ -95,7 +95,7 @@ Panel {
                     width: 16
                     height: 16
                     radius: 8
-                    color: Net.wifiEnabled ? Theme.accent : Theme.textMuted
+                    color: Net.wifiEnabled ? Theme.onAccentContainer : Theme.textMuted
 
                     Behavior on x {
                         enabled: Appearance.anim.enabled
@@ -153,14 +153,14 @@ Panel {
 
                     Icon {
                         text: network.signal > 66 ? "wifi" : network.signal > 33 ? "wifi_2_bar" : "wifi_1_bar"
-                        color: network.active ? Theme.accent : Theme.textSecondary
+                        color: network.active ? Theme.onAccentContainer : Theme.textSecondary
                         size: Appearance.font.size.md
                     }
 
                     StyledText {
                         Layout.fillWidth: true
                         text: network.ssid
-                        color: network.active ? Theme.accent : Theme.text
+                        color: network.active ? Theme.onAccentContainer : Theme.text
                         font.pixelSize: Appearance.font.size.sm
                     }
 

@@ -145,7 +145,7 @@ DockedPanel {
                 font.pixelSize: Appearance.font.size.lg
                 color: Theme.text
                 selectionColor: Theme.accentContainer
-                selectedTextColor: Theme.text
+                selectedTextColor: Theme.onAccentContainer
                 clip: true
 
                 onAccepted: root.activate()
@@ -224,7 +224,7 @@ DockedPanel {
                         StyledText {
                             Layout.fillWidth: true
                             text: row.modelData.name
-                            color: index === root.selected ? Theme.accent : Theme.text
+                            color: index === root.selected ? Theme.onAccentContainer : Theme.text
                             font.pixelSize: Appearance.font.size.md
                         }
 

@@ -128,7 +128,7 @@ DockedPanel {
         Icon {
             anchors.centerIn: parent
             text: action.icon
-            color: action.active ? Theme.accent : Theme.textSecondary
+            color: action.active ? Theme.onAccentContainer : Theme.textSecondary
             size: Appearance.font.size.md
         }
 

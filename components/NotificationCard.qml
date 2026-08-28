@@ -118,7 +118,7 @@ Rectangle {
                 anchors.centerIn: parent
                 visible: !senderImage.visible
                 text: root.urgent ? "priority_high" : "notifications"
-                color: root.urgent ? Theme.text : Theme.accent
+                color: root.urgent ? Theme.onError : Theme.onAccentContainer
                 filled: true
                 size: Appearance.font.size.md
             }
@@ -226,7 +226,7 @@ Rectangle {
                             id: actionText
                             anchors.centerIn: parent
                             text: action.modelData?.text ?? ""
-                            color: actionHover.containsMouse ? Theme.accent : Theme.text
+                            color: actionHover.containsMouse ? Theme.onAccentContainer : Theme.text
                             font.pixelSize: Appearance.font.size.xs
                         }
 

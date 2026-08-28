@@ -188,7 +188,7 @@ Item {
                                     anchors.centerIn: parent
                                     visible: !img.visible
                                     text: (root.classOf(appIcon.modelData)[0] ?? "?").toUpperCase()
-                                    color: slot.active ? Theme.accent : Theme.textSecondary
+                                    color: slot.active ? Theme.onAccentContainer : Theme.textSecondary
                                     font.pixelSize: Appearance.font.size.xs
                                 }
                             }
@@ -198,7 +198,7 @@ Item {
                         StyledText {
                             visible: slot.windows.length > root.maxIcons
                             text: `+${slot.windows.length - root.maxIcons}`
-                            color: slot.active ? Theme.accent : Theme.textMuted
+                            color: slot.active ? Theme.onAccentContainer : Theme.textMuted
                             font.pixelSize: Appearance.font.size.xs
                         }
                     }
@@ -210,7 +210,7 @@ Item {
                         width: slot.dotSize
                         height: slot.dotSize
                         radius: height / 2
-                        color: slot.active ? Theme.accent : Theme.outlineVariant
+                        color: slot.active ? Theme.onAccentContainer : Theme.outlineVariant
 
                         Behavior on color {
                             enabled: Appearance.anim.enabled

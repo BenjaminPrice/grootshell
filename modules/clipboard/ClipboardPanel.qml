@@ -73,7 +73,7 @@ Panel {
                 font.pixelSize: Appearance.font.size.md
                 color: Theme.text
                 selectionColor: Theme.accentContainer
-                selectedTextColor: Theme.text
+                selectedTextColor: Theme.onAccentContainer
                 clip: true
 
                 onAccepted: root.activate()
@@ -153,7 +153,7 @@ Panel {
                         // the text on one line either way, because a clipboard
                         // row is an identifier not a document.
                         text: entry.modelData.preview.replace(/\s+/g, " ").trim()
-                        color: index === root.selected ? Theme.accent : Theme.text
+                        color: index === root.selected ? Theme.onAccentContainer : Theme.text
                         font.pixelSize: Appearance.font.size.sm
                         mono: !entry.modelData.isImage
                         elide: Text.ElideRight

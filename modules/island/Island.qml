@@ -140,13 +140,13 @@ DockedPanel {
                         Icon {
                             text: tab.modelData.icon
                             filled: tab.active
-                            color: tab.active ? Theme.accent : Theme.textSecondary
+                            color: tab.active ? Theme.onAccentContainer : Theme.textSecondary
                             size: Appearance.font.size.md
                         }
 
                         StyledText {
                             text: tab.modelData.label
-                            color: tab.active ? Theme.accent : Theme.textSecondary
+                            color: tab.active ? Theme.onAccentContainer : Theme.textSecondary
                             font.pixelSize: Appearance.font.size.xs
                         }
                     }

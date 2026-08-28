@@ -201,7 +201,7 @@ Item {
             anchors.centerIn: parent
             text: control.icon
             filled: true
-            color: control.primary ? Theme.accent : Theme.text
+            color: control.primary ? Theme.onAccentContainer : Theme.text
             size: control.primary ? Appearance.font.size.lg : Appearance.font.size.md
         }
 

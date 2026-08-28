@@ -84,14 +84,21 @@ Singleton {
     readonly property color outlineVariant: c.outlineVariant ?? "#484553"
 
     // --- Accent -------------------------------------------------------------
+    // Each container comes WITH its paired foreground, and text drawn on one of
+    // these fills must use its partner rather than a hand-picked colour. Material
+    // 3 computes the pairing to be legible for any source colour; choosing by eye
+    // works until the wallpaper is yellow. Measured on one: accent on
+    // accentContainer is 1.32:1, where onAccentContainer on it is 7.09:1.
     readonly property color accent: c.accent ?? "#cbbeff"
     readonly property color accentContainer: c.accentContainer ?? "#493e76"
     readonly property color onAccent: c.onAccent ?? "#32285e"
+    readonly property color onAccentContainer: c.onAccentContainer ?? "#ffffff"
 
     // --- Semantic -----------------------------------------------------------
     readonly property color success: c.success ?? "#a9d5a0"
     readonly property color warning: c.warning ?? "#e8c98a"
     readonly property color error: c.error ?? "#ffb4ab"
+    readonly property color onError: c.onError ?? "#690005"
 
     readonly property color shadow: c.shadow ?? "#000000"
 
@@ -103,9 +110,31 @@ Singleton {
         return ramp[Math.max(0, Math.min(ramp.length - 1, level))];
     }
 
-    // Text that stays legible on an arbitrary background. Used by the tray and
-    // notification icons, where the colour comes from someone else's app.
+    // Text that stays legible on an ARBITRARY background — a tray or notification
+    // icon whose colour comes from someone else's app, where there is no paired
+    // role to reach for. Anything drawn on one of our own container colours
+    // should use that container's partner above instead; this is the fallback for
+    // colours nobody chose.
+    //
+    // WCAG relative luminance, not HSL lightness. HSL treats every hue as equally
+    // bright, so pure blue (L=0.5) and pure yellow (L=0.5) come out the same when
+    // yellow is roughly ten times more luminous — which is exactly the case that
+    // was getting white text on a bright fill. Weighting the channels the way an
+    // eye does puts the flip point where it belongs.
+    function luminance(c: color): real {
+        const f = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    }
+
+    function contrast(a: color, b: color): real {
+        const la = luminance(a);
+        const lb = luminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    // Whichever of our two extremes reads better, rather than a fixed threshold —
+    // on a mid-tone neither is great and the answer is whichever is less bad.
     function on(bg: color): color {
-        return bg.hslLightness > 0.5 ? background : text;
+        return contrast(text, bg) >= contrast(background, bg) ? text : background;
     }
 }
