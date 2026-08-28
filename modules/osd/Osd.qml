@@ -11,17 +11,16 @@ import qs.components
 // server changed, not because anything called in. Volume keeps working when the
 // shell is dead.
 //
-// Shown three ways: briefly when the volume actually changes, while the
-// pointer is on the right border beside it, and pinned open by the bar's volume
-// icon. The brief case takes NO pointer input — it appears where a pointer
-// might be doing something else and stealing that click would be rude. Only the
-// trigger strip on the border itself is permanently live, and it is as narrow as
-// the border it sits on.
+// Shown three ways: briefly when the volume actually changes, while the pointer
+// is on the right border beside it, and pinned open by the bar's volume icon.
+//
+// A DockedPanel like every other panel, so it extrudes from the border with the
+// same inverted corners rather than floating next to it as a separate card. It
+// docks mid-edge and abuts nothing, so both of its inward corners get fillets —
+// the launcher and the notification centre each abut something and only get one.
 
 Item {
     id: root
-
-    readonly property int inset: Config.border.thickness
 
     // Raised by a volume change and dropped by the timer below.
     //
@@ -40,11 +39,11 @@ Item {
     readonly property alias trigger: edgeZone
     readonly property bool wantsInput: !GameMode.enabled && (ShellState.volume || root.hovering || linger.running)
 
-    implicitWidth: 56 + inset
-    implicitHeight: 200
+    implicitWidth: panel.implicitWidth
+    implicitHeight: panel.implicitHeight
 
     // The ROOT stays visible whenever the shell is not in game mode, and only
-    // the readout inside it comes and goes. The trigger strip is a child, and an
+    // the panel inside it comes and goes. The trigger strip is a child, and an
     // invisible item receives no hover — binding this to `showing` would have
     // meant hovering the edge could never be what opens it.
     visible: !GameMode.enabled
@@ -80,61 +79,23 @@ Item {
             linger.restart();
     }
 
-    // The trigger. On the border, spanning exactly the height of the readout it
-    // opens — "the right edge, beside the volume control" is the whole gesture,
-    // so it should not be findable anywhere else on that edge.
-    MouseArea {
-        id: edgeZone
+    DockedPanel {
+        id: panel
 
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        width: root.inset + 4
-        height: parent.height
-        hoverEnabled: true
-        // Hover only. This strip is live whenever the shell is, and it sits on
-        // the border where a window's resize edge is — taking a button here
-        // would quietly break dragging that edge.
-        acceptedButtons: Qt.NoButton
-        enabled: !GameMode.enabled
-    }
 
-    Rectangle {
-        anchors.right: parent.right
-        anchors.rightMargin: root.inset
-        anchors.verticalCenter: parent.verticalCenter
-        width: 48
-        height: parent.height
-        radius: Appearance.rounding.large
+        edge: "right"
+        open: root.showing
 
-        opacity: root.showing ? 1 : 0
-        // Driven by the animated opacity rather than by `showing` directly, so
-        // the fade out plays to the end instead of being cut off at the frame
-        // the value changes.
-        visible: opacity > 0
-
-        Behavior on opacity {
-            enabled: Appearance.anim.enabled
-            NumberAnimation {
-                duration: Appearance.anim.fast
-            }
-        }
-        color: Theme.layer(2)
-        border.width: 1
-        border.color: Theme.outlineVariant
-
-        // Sustains the hover once the pointer has crossed onto the body, and
-        // nothing else — this is a readout, and the volume keys remain the way
-        // volume is set. No buttons, so it cannot swallow a click either.
-        MouseArea {
-            id: bodyHover
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
-        }
+        span: 200
+        depth: 56
+        // Tighter than the default: at this depth the standard padding would
+        // leave the level bar a few pixels wide.
+        padding: Appearance.padding.sm
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: Appearance.padding.sm
             spacing: Appearance.spacing.sm
 
             // Fill rises from the bottom, which is the direction the value moves.
@@ -177,5 +138,35 @@ Item {
                 mono: true
             }
         }
+
+        // Sustains the hover once the pointer has crossed onto the body, and
+        // nothing else — this is a readout, and the volume keys remain the way
+        // volume is set. No buttons, so it cannot swallow a click either.
+        MouseArea {
+            id: bodyHover
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+        }
+    }
+
+    // The trigger. On the border, spanning exactly the height of the readout it
+    // opens — "the right edge, beside the volume control" is the whole gesture,
+    // so it should not be findable anywhere else on that edge.
+    //
+    // Declared after the panel so it stays on top as the panel extrudes past it.
+    MouseArea {
+        id: edgeZone
+
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: Config.border.thickness + 4
+        height: panel.span
+        hoverEnabled: true
+        // Hover only. This strip is live whenever the shell is, and it sits on
+        // the border where a window's resize edge is — taking a button here
+        // would quietly break dragging that edge.
+        acceptedButtons: Qt.NoButton
+        enabled: !GameMode.enabled
     }
 }
