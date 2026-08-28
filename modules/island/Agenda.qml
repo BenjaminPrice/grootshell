@@ -109,6 +109,17 @@ Item {
                     anchors.margins: Appearance.padding.sm
                     spacing: Appearance.spacing.sm
 
+                    // Which calendar, as a bar rather than a label. With several
+                    // feeds merged the question is "is that work or not", and a
+                    // name per row would cost more width than the title has.
+                    Rectangle {
+                        Layout.preferredWidth: 3
+                        Layout.preferredHeight: rowLayout.implicitHeight
+                        radius: 1.5
+                        color: Calendar.colourFor(row.modelData.calendar ?? "")
+                        visible: Calendar.calendars.length > 1
+                    }
+
                     StyledText {
                         text: root.timeOf(row.modelData)
                         color: Theme.textMuted
@@ -176,6 +187,30 @@ Item {
                 text: root.selected?.summary ?? ""
                 color: Theme.text
                 font.pixelSize: Appearance.font.size.md
+                elide: Text.ElideRight
+            }
+        }
+
+        // Named here, unlike in the list. There is room for it on a detail view,
+        // and "which calendar is this on" is a real question once several are
+        // merged — the bar in the list only distinguishes, it does not tell you.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Appearance.spacing.xs
+            visible: Calendar.calendars.length > 1 && (root.selected?.calendar ?? "") !== ""
+
+            Rectangle {
+                Layout.preferredWidth: 6
+                Layout.preferredHeight: 6
+                radius: 3
+                color: Calendar.colourFor(root.selected?.calendar ?? "")
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                text: root.selected?.calendar ?? ""
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
                 elide: Text.ElideRight
             }
         }

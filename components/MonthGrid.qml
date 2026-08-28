@@ -27,11 +27,14 @@ Item {
     // the view would snap back at midnight.
     property date shown: Time.now
 
-    // Days to mark, as "yyyy-mm-dd". A plain object used as a set so lookup is
-    // by key rather than a linear scan per cell — 42 cells against a month of
-    // events is small either way, but the shape is the point: the producer
-    // writes dates, this reads them.
+    // Day key ("yyyy-mm-dd") -> array of colour strings to mark it with. Keyed
+    // rather than a list so lookup is by key instead of a scan per cell, and
+    // colours rather than calendars so this stays a plain month view: it draws
+    // what it is handed and knows nothing about where events come from.
     property var eventDays: ({})
+
+    // Beyond this the dots stop being countable and start being a smear.
+    readonly property int maxMarkers: 3
 
     readonly property int firstWeekday: 0 // Sunday
 
@@ -184,7 +187,7 @@ Item {
 
                     readonly property bool inMonth: modelData.getMonth() === root.shown.getMonth()
                     readonly property bool isToday: root.sameDay(modelData, Time.now)
-                    readonly property bool hasEvents: root.eventDays[root.key(modelData)] === true
+                    readonly property var markers: root.eventDays[root.key(modelData)] ?? []
 
                     Layout.fillWidth: true
                     // Compact deliberately. Six rows at the large type came to
@@ -219,17 +222,31 @@ Item {
                         onClicked: root.dayClicked(cell.modelData)
                     }
 
-                    // The event marker. Under the number rather than behind it,
-                    // so a day with events is still legible as a date.
-                    Rectangle {
+                    // One dot per calendar with something on this day, under the
+                    // number rather than behind it so the date stays legible.
+                    // Small on purpose: this says WHICH calendars, not how busy.
+                    Row {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
                         anchors.bottomMargin: 1
-                        visible: cell.hasEvents
-                        width: 3
-                        height: 3
-                        radius: 1.5
-                        color: cell.isToday ? Theme.onAccentContainer : cell.inMonth ? Theme.accent : Theme.outlineVariant
+                        spacing: 2
+
+                        Repeater {
+                            model: cell.markers.slice(0, root.maxMarkers)
+
+                            delegate: Rectangle {
+                                required property string modelData
+
+                                width: 3
+                                height: 3
+                                radius: 1.5
+                                // Days outside the shown month keep their
+                                // calendar's hue but dimmed, so the leading and
+                                // trailing rows stay visibly secondary.
+                                color: modelData
+                                opacity: cell.inMonth ? 1 : 0.45
+                            }
+                        }
                     }
                 }
             }

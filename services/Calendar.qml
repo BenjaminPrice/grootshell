@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.config
 
 // Calendar events, from the .ics feed the nixos repo fetches.
 //
@@ -18,20 +19,52 @@ Singleton {
     id: root
 
     property var events: []
+    property var calendars: []
     property bool configured: false
     property string error: ""
     property bool loading: false
 
-    // Days with something on them, as a set of "yyyy-mm-dd" keys — the shape
-    // components/Calendar.qml wants for its markers. Built once per refresh
-    // rather than scanned per cell.
+    // Fixed, and NOT derived from the wallpaper.
+    //
+    // A calendar's colour is an identity — "the green one is work" — and an
+    // identity that changes with the picture behind it is not one. Same
+    // reasoning as success and warning in config/Theme.qml.
+    //
+    // Chosen to stay distinguishable on both a light and a dark ground, since
+    // the mode follows the wallpaper even though these do not.
+    readonly property var palette: ["#7aa2f7", "#9ece6a", "#e0af68", "#bb9af7", "#f7768e", "#7dcfff", "#e8a2af"]
+
+    // Config wins where it names a calendar; otherwise position in the feed
+    // list decides, which is stable across polls because the fetcher preserves
+    // the order of the secret.
+    function colourFor(name: string): color {
+        const overrides = Config.services.calendarColours ?? ({});
+        if (overrides[name])
+            return overrides[name];
+        const i = root.calendars.indexOf(name);
+        return root.palette[(i < 0 ? 0 : i) % root.palette.length];
+    }
+
+    // Day key -> the colours to mark it with, in feed order and de-duplicated.
+    // components/MonthGrid.qml draws whatever it is handed and knows nothing
+    // about calendars, which is what keeps it a plain month view.
+    //
+    // Built once per refresh rather than scanned per cell: 42 cells against a
+    // month of events is small, but doing it per cell means doing it again on
+    // every repaint.
     readonly property var eventDays: {
         const out = {};
         for (let i = 0; i < root.events.length; i++) {
-            const d = new Date(root.events[i].start);
+            const e = root.events[i];
+            const d = new Date(e.start);
             const m = String(d.getMonth() + 1).padStart(2, "0");
             const day = String(d.getDate()).padStart(2, "0");
-            out[`${d.getFullYear()}-${m}-${day}`] = true;
+            const key = `${d.getFullYear()}-${m}-${day}`;
+            const colour = String(root.colourFor(e.calendar ?? ""));
+            if (!out[key])
+                out[key] = [];
+            if (out[key].indexOf(colour) < 0)
+                out[key].push(colour);
         }
         return out;
     }
@@ -91,6 +124,9 @@ Singleton {
             onStreamFinished: {
                 try {
                     const parsed = JSON.parse(text);
+                    // calendars BEFORE events: colourFor reads the list, and
+                    // eventDays recomputes the moment events changes.
+                    root.calendars = parsed.calendars ?? [];
                     root.events = parsed.events ?? [];
                     root.configured = parsed.configured ?? false;
                     root.error = parsed.error ?? "";

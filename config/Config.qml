@@ -137,6 +137,14 @@ Singleton {
                 // looked up first so the app gets the environment its packager
                 // intended; this is the fallback when there is no entry to find.
                 property string mediaPlayerCommand: "pear-desktop"
+
+                // Calendar name -> colour, overriding the built-in palette.
+                // Names are whatever the secret labels a feed, or the feed's own
+                // X-WR-CALNAME if it was left unlabelled. Colours live here and
+                // NOT in the secret: a colour is not sensitive, and changing one
+                // should not mean decrypting a file.
+                //   { "Work": "#7aa2f7", "Family": "#9ece6a" }
+                property var calendarColours: ({})
                 property var mediaPlayerNames: ["pear-desktop", "YouTube Music"]
                 property string weatherLocation: ""
             }
