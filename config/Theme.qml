@@ -51,6 +51,12 @@ Singleton {
 
     readonly property var c: data.colours ?? data.colors ?? ({})
 
+    // Light or dark, decided by the generator from the wallpaper's brightness
+    // rather than configured. Mostly the shell does not need to ask — every
+    // colour below already flipped — but anything mixing its own tone has to
+    // know which way is up.
+    readonly property bool isLight: (data.mode ?? "dark") === "light"
+
     // Whether a generated palette was actually read. services/Theming.qml uses
     // this to decide whether the wallpaper needs running through matugen on
     // startup, rather than regenerating unconditionally.
