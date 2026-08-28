@@ -148,7 +148,7 @@ Singleton {
                 // YouTube Music desktop app was renamed — th-ch/youtube-music is
                 // now pear-devs/pear-desktop — and which string the app reports
                 // is its own business, not something to pin a rebuild on.
-                property var preferredPlayers: ["youtube music", "pear", "fladder"]
+                property var preferredPlayers: ["youtube music", "pear", "jellyfin", "tsukimi", "delfin"]
 
                 // What the media tab's launch button starts. A desktop entry is
                 // looked up first so the app gets the environment its packager

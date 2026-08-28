@@ -113,19 +113,20 @@ Item {
     // first. Vertical keys move within a tab, horizontal keys move between them,
     // and nothing here gets to blur that.
     //
-    // Escape is claimed ONLY while a detail is open, where it means "back to the
-    // list". Everywhere else it falls through to shell.qml, which closes the
-    // panel — a modal that swallows Escape on a host with no local console is
-    // the one thing that must never happen.
+    // Backspace closes a detail, and Escape is not claimed at all: it always
+    // falls through to shell.qml and closes the panel, from anywhere and in any
+    // state. One key with one meaning beats a key that means "back" in some
+    // places — and a modal that can swallow Escape on a host with no local
+    // console is the one thing that must never happen.
     function handleKey(event): bool {
         if (root.selected) {
             switch (event.key) {
-            case Qt.Key_Escape:
             case Qt.Key_Backspace:
                 root.selected = null;
                 return true;
             case Qt.Key_Return:
             case Qt.Key_Enter:
+            case Qt.Key_Space:
                 return root.join(0);
             }
             // 1..9 pick a specific link, for an invite carrying more than one.
@@ -143,6 +144,7 @@ Item {
             return true;
         case Qt.Key_Return:
         case Qt.Key_Enter:
+        case Qt.Key_Space:
             if (root.items.length > 0) {
                 root.selected = root.items[Math.min(root.cursor, root.items.length - 1)];
                 return true;
