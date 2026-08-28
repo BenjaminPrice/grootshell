@@ -8,6 +8,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import qs.config
 import qs.services
+import qs.components
 import qs.modules.background
 import qs.modules.bar
 import qs.modules.border
