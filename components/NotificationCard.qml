@@ -82,6 +82,51 @@ Rectangle {
         }
     }
 
+    // Declared BEFORE the content, and that ordering is load-bearing.
+    //
+    // Two sibling items at the same z both covering the same pixel: the one
+    // declared LATER is on top and gets the event. This used to come last, so it
+    // covered the whole card and swallowed every left click before the buttons
+    // underneath it saw one — pressing close toggled `expanded` instead of
+    // closing, the chevron did nothing, and the action buttons were unreachable.
+    // The close icon never even turned red, because its own MouseArea never saw
+    // the pointer either.
+    //
+    // Underneath, it now catches only what the buttons do not: background clicks
+    // to expand, middle-click to dismiss, and the drag.
+    //
+    // The cost is that `containsMouse` goes false while the pointer is precisely
+    // over one of those small buttons, which releases the expiry hold. That is
+    // harmless and slightly helpful: `running: hovering === 0` restarts the timer
+    // rather than resuming it, so aiming at close buys a fresh five seconds
+    // instead of racing the old ones.
+    MouseArea {
+        id: hover
+
+        anchors.fill: parent
+        hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+
+        drag.target: root
+        drag.axis: Drag.XAxis
+        drag.minimumX: -root.width
+        drag.maximumX: root.width
+
+        onClicked: mouse => {
+            if (mouse.button === Qt.MiddleButton)
+                root.discarded();
+            else if (root.expandable)
+                root.expanded = !root.expanded;
+        }
+
+        onReleased: {
+            if (Math.abs(root.x) > root.dismissAt)
+                root.discarded();
+            else
+                root.x = 0;
+        }
+    }
+
     RowLayout {
         id: body
 
@@ -279,30 +324,4 @@ Rectangle {
         }
     }
 
-    MouseArea {
-        id: hover
-
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-
-        drag.target: root
-        drag.axis: Drag.XAxis
-        drag.minimumX: -root.width
-        drag.maximumX: root.width
-
-        onClicked: mouse => {
-            if (mouse.button === Qt.MiddleButton)
-                root.discarded();
-            else if (root.expandable)
-                root.expanded = !root.expanded;
-        }
-
-        onReleased: {
-            if (Math.abs(root.x) > root.dismissAt)
-                root.discarded();
-            else
-                root.x = 0;
-        }
-    }
 }
