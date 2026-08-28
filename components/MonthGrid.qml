@@ -33,8 +33,14 @@ Item {
     // what it is handed and knows nothing about where events come from.
     property var eventDays: ({})
 
-    // Beyond this the dots stop being countable and start being a smear.
-    readonly property int maxMarkers: 3
+    // Five fits, and five is what this host actually has.
+    //
+    // The arithmetic, because it is the thing that decides: the grid is 250px
+    // across in seven columns with 2px between them, so a cell is about 34px.
+    // Five 3px dots with 2px gaps is 23px. Beyond about six the dots stop being
+    // countable and start being a smear, which is when the marker should become
+    // a count instead.
+    readonly property int maxMarkers: 5
 
     readonly property int firstWeekday: 0 // Sunday
 
