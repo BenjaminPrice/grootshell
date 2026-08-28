@@ -11,6 +11,33 @@ import qs.components
 Item {
     id: root
 
+    // Keys the media tab claims. Returns true when it consumed one.
+    //
+    // Space is play/pause with something loaded and "start the player" without,
+    // which is the same intent either way: the button under your thumb should
+    // make music happen. n and p rather than the arrow keys — those belong to
+    // the island for moving between tabs, and a transport that stole them would
+    // trap you on this one.
+    function handleKey(event): bool {
+        switch (event.key) {
+        case Qt.Key_Space:
+        case Qt.Key_Return:
+        case Qt.Key_Enter:
+            if (Players.hasActive)
+                Players.playPause();
+            else
+                root.launchPlayer();
+            return true;
+        case Qt.Key_N:
+            Players.next();
+            return true;
+        case Qt.Key_P:
+            Players.previous();
+            return true;
+        }
+        return false;
+    }
+
     // Prefers the .desktop entry so the app starts with whatever environment
     // its packager set, and falls back to the bare command for a player that
     // ships no entry. Through Apps.launch either way, so it survives the shell

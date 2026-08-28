@@ -22,6 +22,13 @@ import qs.components
 Item {
     id: root
 
+    // Everything the dashboard does with a key, the agenda does — the month
+    // grid is a display, and paging it is not worth a chord when clicking a day
+    // is right there.
+    function handleKey(event): bool {
+        return agenda.handleKey(event);
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: Appearance.spacing.md

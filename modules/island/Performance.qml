@@ -52,7 +52,10 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.alignment: Qt.AlignCenter
-            columns: 3
+            // One row. Six columns covers the six dials; Swap hides itself on a
+            // machine without any, and GridLayout skips an invisible child
+            // rather than leaving a hole, so the usual case is a row of five.
+            columns: 6
             columnSpacing: Appearance.spacing.lg
             rowSpacing: Appearance.spacing.md
 

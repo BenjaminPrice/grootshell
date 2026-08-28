@@ -33,6 +33,21 @@ DockedPanel {
     open: ShellState.island
     frameThickness: 0
 
+    // Keyboard sink for the whole island.
+    //
+    // A bare Item rather than a FocusScope wrapping the content: nothing inside
+    // wants focus of its own, so there is no scope to manage — and it must stay
+    // VISIBLE, because an invisible item cannot hold active focus, which is the
+    // bug that silently broke keyboard navigation in the wallpaper switcher.
+    //
+    // Declared first so it sits under the content and cannot intercept a click.
+    Item {
+        id: keyHandler
+        anchors.fill: parent
+        focus: true
+        Keys.onPressed: event => root.route(event)
+    }
+
     // Sized per tab. Scaled by the font scale so the "sofa, not desk" knob moves
     // these too — a panel measured in pixels while its contents are measured in
     // scaled type would clip the moment the scale went up.
@@ -46,12 +61,74 @@ DockedPanel {
                 h: 340
             },
             performance: {
-                w: 700,
-                h: 480
+                // Wide enough for one row of dials at roughly 20% larger than
+                // the old 3x2 grid gave them.
+                //
+                // The old arrangement worked out to a ~177px dial: 700 wide less
+                // padding over three columns is 206 across, but two rows of a
+                // 480 panel left only ~194 tall, and Gauge squares itself to the
+                // smaller of the two. One row of five at 212 needs
+                // 5*212 + 4*gap + padding, and the height only has to clear one
+                // dial plus its label and the line beneath.
+                w: 1190,
+                h: 310
             }
         })
 
     readonly property var size: sizes[ShellState.islandTab] ?? sizes.dashboard
+
+    readonly property var tabIds: ["dashboard", "media", "performance"]
+
+    // Focus has to be taken after the panel is actually on screen. The extrusion
+    // animates up from nothing, so on the frame `open` flips there is still
+    // nothing to focus — the same deferral the wallpaper switcher needs.
+    onOpenChanged: if (root.open)
+        Qt.callLater(root.grabFocus)
+
+    function grabFocus(): void {
+        if (root.open)
+            keyHandler.forceActiveFocus();
+    }
+
+    function cycleTab(delta: int): void {
+        const i = root.tabIds.indexOf(ShellState.islandTab);
+        const next = Math.max(0, Math.min(root.tabIds.length - 1, (i < 0 ? 0 : i) + delta));
+        ShellState.islandTab = root.tabIds[next];
+    }
+
+    // The active tab gets first refusal on every key, and only what it declines
+    // becomes a tab switch. That ordering is what lets the agenda keep Left for
+    // "back to the list" while Left still moves between tabs everywhere else.
+    function route(event): void {
+        const tab = ShellState.islandTab;
+        const target = tab === "dashboard" ? dashboardTab : tab === "media" ? mediaTab : null;
+
+        if (target && target.handleKey(event)) {
+            event.accepted = true;
+            return;
+        }
+
+        if (event.key === Qt.Key_Left) {
+            root.cycleTab(-1);
+            event.accepted = true;
+            return;
+        }
+        if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) {
+            root.cycleTab(1);
+            event.accepted = true;
+            return;
+        }
+
+        // Direct access, because three tabs is few enough to address by number
+        // and arrowing across is a step nobody needs. Safe to claim here: the
+        // tabs get first refusal, and the only one that wants digits is the
+        // agenda's detail view, which takes them before this is reached.
+        const digit = event.key - Qt.Key_1;
+        if (digit >= 0 && digit < root.tabIds.length) {
+            ShellState.islandTab = root.tabIds[digit];
+            event.accepted = true;
+        }
+    }
 
     // Animated here rather than in DockedPanel: the panel already animates its
     // own depth on open and close, and a Behavior on the resulting size would
@@ -168,8 +245,13 @@ DockedPanel {
             Layout.fillHeight: true
             currentIndex: ["dashboard", "media", "performance"].indexOf(ShellState.islandTab)
 
-            Dashboard {}
-            Media {}
+            Dashboard {
+                id: dashboardTab
+            }
+            Media {
+                id: mediaTab
+            }
+            // No handleKey: a row of dials has nothing to operate.
             Performance {}
         }
     }

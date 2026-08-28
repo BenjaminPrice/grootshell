@@ -22,6 +22,11 @@ Item {
     // The event whose detail is showing, or null for the list.
     property var selected: null
 
+    // Keyboard cursor into `items`. Separate from `selected`, which is the thing
+    // being READ — you move through a list and then open something, and
+    // conflating the two means arrowing past an entry counts as opening it.
+    property int cursor: 0
+
     readonly property bool isToday: Calendar.sameDay(root.day, Time.now)
 
     // Today lists what is LEFT of today; any other day lists all of it. "Today
@@ -94,7 +99,70 @@ Item {
         }
     }
 
-    onDayChanged: root.selected = null
+    onDayChanged: {
+        root.selected = null;
+        root.cursor = 0;
+    }
+
+    // Keys the agenda claims. Returns true when it consumed one, so the island
+    // knows not to treat it as a tab switch.
+    //
+    // Escape is claimed ONLY while a detail is open, where it means "back to the
+    // list". Everywhere else it falls through to shell.qml, which closes the
+    // panel — a modal that swallows Escape on a host with no local console is
+    // the one thing that must never happen.
+    function handleKey(event): bool {
+        if (root.selected) {
+            switch (event.key) {
+            case Qt.Key_Escape:
+            case Qt.Key_Backspace:
+            case Qt.Key_Left:
+                root.selected = null;
+                return true;
+            case Qt.Key_Return:
+            case Qt.Key_Enter:
+                return root.join(0);
+            }
+            // 1..9 pick a specific link, for an invite carrying more than one.
+            if (event.key >= Qt.Key_1 && event.key <= Qt.Key_9)
+                return root.join(event.key - Qt.Key_1);
+            return false;
+        }
+
+        switch (event.key) {
+        case Qt.Key_Down:
+            root.moveCursor(1);
+            return true;
+        case Qt.Key_Up:
+            root.moveCursor(-1);
+            return true;
+        case Qt.Key_Return:
+        case Qt.Key_Enter:
+        case Qt.Key_Right:
+            if (root.items.length > 0) {
+                root.selected = root.items[Math.min(root.cursor, root.items.length - 1)];
+                return true;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    function moveCursor(delta: int): void {
+        if (root.items.length === 0)
+            return;
+        root.cursor = Math.max(0, Math.min(root.items.length - 1, root.cursor + delta));
+        list.positionViewAtIndex(root.cursor, ListView.Contain);
+    }
+
+    function join(index: int): bool {
+        const links = root.selected?.links ?? [];
+        if (index < 0 || index >= links.length)
+            return false;
+        Apps.launch(["xdg-open", links[index].url]);
+        ShellState.close("island");
+        return true;
+    }
 
     // --- The list -----------------------------------------------------------
     ColumnLayout {
@@ -120,6 +188,8 @@ Item {
         }
 
         ListView {
+            id: list
+
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -155,7 +225,9 @@ Item {
                     width: parent.width
                     implicitHeight: rowLayout.implicitHeight + Appearance.padding.sm * 2
                     radius: Appearance.rounding.normal
-                    color: rowHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
+                    // The keyboard cursor reads the same as hover: this is one
+                    // selection with two ways to move it, not two selections.
+                    color: rowHover.containsMouse || rowWrap.index === root.cursor ? Theme.surfaceContainerHigh : "transparent"
 
                     RowLayout {
                         id: rowLayout
@@ -205,7 +277,10 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: root.selected = row.modelData
+                        onClicked: {
+                        root.cursor = rowWrap.index;
+                        root.selected = row.modelData;
+                    }
                     }
                             }
             }
