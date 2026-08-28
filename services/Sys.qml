@@ -156,13 +156,29 @@ Singleton {
     // kB as reported by /proc/meminfo, which is kibibytes, so this divides by
     // 1024s. That is the same convention `free -h` uses, and cross-checking a
     // readout against the obvious command should not produce two answers.
-    //
-    // It does mean the total reads lower than the RAM you bought: MemTotal
-    // excludes what the kernel and firmware reserve, so 32GB of sticks reports
-    // about 31.1 here. Reporting the sticks would mean dmidecode and root, to
-    // print a number that is not the one that runs out.
     function gib(kb: real): real {
         return kb / 1048576;
+    }
+
+    // The same figure rounded to what is actually IN the machine.
+    //
+    // MemTotal excludes what the kernel and firmware reserve, so 32GB of sticks
+    // reports about 31.1 — accurate, and not the number anyone thinks in. This
+    // is for the denominator of a readout, where "of 32" is the useful fact and
+    // "of 31.1" just invites the question.
+    //
+    // Rounded UP to the next even gibibyte rather than to a fixed 32: DIMMs come
+    // in even capacities and the reserve is well under 2GiB on any ordinary
+    // machine, so this lands on 8, 16, 24, 32, 64 without knowing which one it
+    // is looking at. dmidecode would give the true installed size and needs
+    // root for it, which is a large price for a denominator.
+    //
+    // The percentage stays computed against the REAL total, because that is the
+    // one that runs out. The two round to the same integer here (4.7 of 31.1 and
+    // of 32 are both 15%) and can differ by a point elsewhere, which is well
+    // inside what a dial is claiming to tell you.
+    function nominalGib(kb: real): int {
+        return Math.ceil(root.gib(kb) / 2) * 2;
     }
 
     function formatUptime(): string {
