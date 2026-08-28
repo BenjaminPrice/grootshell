@@ -18,13 +18,32 @@ Singleton {
 
     readonly property list<MprisPlayer> all: Mpris.players.values
 
-    readonly property MprisPlayer active: {
-        if (all.length === 0)
-            return null;
+    // The bus name of the last player seen actually playing. Written only from
+    // the playing branch below, and only when it changes, so the binding that
+    // reads it cannot chase its own tail.
+    property string lastBus: ""
 
-        const playing = all.filter(p => p.playbackState === MprisPlaybackState.Playing);
-        const pool = playing.length > 0 ? playing : all;
+    // A real JS array, built by index.
+    //
+    // `values` arrives as a QML list, which is array-LIKE — it has length and
+    // indexes — but is not an Array, and which Array.prototype methods survive
+    // the wrapper is not something to bet the media tab on. The old code called
+    // .filter() on it and then .find() on the result; the first happened to
+    // work, and the second ran against the raw list whenever nothing was
+    // playing, which is precisely the case that broke. Same reasoning as the
+    // note in modules/bar/Workspaces.qml.
+    function snapshot(): var {
+        const out = [];
+        const src = root.all;
+        const n = src?.length ?? 0;
+        for (let i = 0; i < n; i++) {
+            if (src[i])
+                out.push(src[i]);
+        }
+        return out;
+    }
 
+    function preferred(pool: var): var {
         // First name that matches wins, so the order in the config is the
         // preference order. Matched on Identity rather than the bus name: the
         // bus name changed when the app was renamed, and the identity is the
@@ -32,12 +51,47 @@ Singleton {
         const wanted = Config.services.preferredPlayers ?? [];
         for (let i = 0; i < wanted.length; i++) {
             const needle = String(wanted[i]).toLowerCase();
-            const hit = pool.find(p => (p.identity ?? "").toLowerCase().includes(needle));
-            if (hit)
-                return hit;
+            for (let j = 0; j < pool.length; j++) {
+                if ((pool[j].identity ?? "").toLowerCase().includes(needle))
+                    return pool[j];
+            }
+        }
+        return pool[0];
+    }
+
+    readonly property MprisPlayer active: {
+        const pool = root.snapshot();
+        if (pool.length === 0)
+            return null;
+
+        const playing = [];
+        for (let i = 0; i < pool.length; i++) {
+            if (pool[i].playbackState === MprisPlaybackState.Playing)
+                playing.push(pool[i]);
+        }
+        if (playing.length > 0)
+            return root.preferred(playing);
+
+        // Nothing is playing. STAY on whatever was last playing rather than
+        // re-running the preference, which would hand the tab to a different
+        // app the moment you pressed pause — and with two media apps
+        // configured, hand it to one with nothing loaded and no way back.
+        if (root.lastBus) {
+            for (let i = 0; i < pool.length; i++) {
+                if (pool[i].dbusName === root.lastBus)
+                    return pool[i];
+            }
         }
 
-        return pool[0];
+        return root.preferred(pool);
+    }
+
+    // Recorded only while playing, and only on a change. A pause therefore
+    // leaves it alone, which is what makes the selection above sticky.
+    onActiveChanged: {
+        const a = root.active;
+        if (a && a.playbackState === MprisPlaybackState.Playing && (a.dbusName ?? "") !== root.lastBus)
+            root.lastBus = a.dbusName ?? "";
     }
 
     readonly property bool hasActive: active !== null
