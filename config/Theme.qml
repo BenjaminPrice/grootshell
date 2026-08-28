@@ -7,19 +7,22 @@ import Quickshell.Io
 // The palette.
 //
 // Every value has a compiled-in fallback AND can be overridden by
-// ~/.config/grootshell/theme.json. That file is expected to be generated from
-// Nix — the same definition that feeds Stylix, so GTK, Qt, the terminal and this
-// shell all agree — but nothing here requires it to exist.
+// ~/.config/grootshell/theme.json. Nothing here requires that file to exist:
+// the dev loop points Quickshell at a bare checkout, and a shell that rendered
+// black-on-black until something else had run would make that loop useless.
 //
-// The fallbacks are not a nicety: the dev loop points Quickshell at a bare
-// checkout, and a shell that renders black-on-black until a Nix rebuild has run
-// would make that loop useless. Standalone must look correct.
+// DERIVED from the wallpaper, at runtime. matugen generates a Material 3 palette
+// from whatever image is set and writes it here; see theming.nix in the nixos
+// repo and services/Theming.qml for the trigger.
 //
-// Deliberately NOT derived from the wallpaper. Wallpaper-driven schemes are
-// lovely on a laptop and wrong here: the palette also drives GTK and Qt through
-// Stylix, which are build-time, so a scheme that drifted at runtime would leave
-// the shell and the applications disagreeing. Wallpaper and palette are separate
-// concerns.
+// The fallbacks below are that same generator's output for the default
+// wallpaper, so a bare checkout with nothing generated yet looks like the real
+// thing rather than like a placeholder.
+//
+// success and warning are NOT generated and never should be. Material 3 has no
+// semantic colour for either, so a derived one is whatever the algorithm felt
+// like — and "your disk is nearly full" must not change meaning with the
+// wallpaper.
 
 Singleton {
     id: root
@@ -48,42 +51,47 @@ Singleton {
 
     readonly property var c: data.colours ?? data.colors ?? ({})
 
+    // Whether a generated palette was actually read. services/Theming.qml uses
+    // this to decide whether the wallpaper needs running through matugen on
+    // startup, rather than regenerating unconditionally.
+    readonly property bool loaded: Object.keys(c).length > 0
+
     // --- Surfaces, darkest to lightest -------------------------------------
-    // A near-black with a green cast rather than a neutral grey. Against the
-    // teal accent below it reads as one material lit from somewhere, which flat
-    // #000 does not.
-    readonly property color background: c.background ?? "#0a0f0f"
+    // Tinted toward the wallpaper's own hue rather than neutral grey — that is
+    // what scheme-content buys over the default scheme, and it is the difference
+    // between a dark theme and a dark theme that belongs to this image.
+    readonly property color background: c.background ?? "#14121b"
 
     // The frame and the bar behind it. Its own token rather than reusing
     // `background`, because the two are only incidentally similar: `background`
-    // is what you see when there is no wallpaper, and wants to be as close to
-    // black as the palette goes. The frame is a physical-looking bezel drawn
-    // over a photograph, and at true black it stops reading as part of the shell
-    // and starts reading as the edge of the monitor.
-    readonly property color frame: c.frame ?? "#151f1e"
+    // is what shows when there is no wallpaper and wants to be the darkest step
+    // in the ramp. The frame is a bezel drawn over a photograph, and at that
+    // darkness it stops reading as part of the shell and starts reading as the
+    // edge of the monitor.
+    readonly property color frame: c.frame ?? "#201e27"
 
-    readonly property color surface: c.surface ?? "#0e1514"
-    readonly property color surfaceContainer: c.surfaceContainer ?? "#131b1a"
-    readonly property color surfaceContainerHigh: c.surfaceContainerHigh ?? "#192120"
-    readonly property color surfaceContainerHighest: c.surfaceContainerHighest ?? "#1d2827"
+    readonly property color surface: c.surface ?? "#1c1a23"
+    readonly property color surfaceContainer: c.surfaceContainer ?? "#201e27"
+    readonly property color surfaceContainerHigh: c.surfaceContainerHigh ?? "#2b2932"
+    readonly property color surfaceContainerHighest: c.surfaceContainerHighest ?? "#36333d"
 
     // --- Foreground ---------------------------------------------------------
-    readonly property color text: c.text ?? "#dce8e6"
-    readonly property color textSecondary: c.textSecondary ?? "#a2adac"
-    readonly property color textMuted: c.textMuted ?? "#6d7876"
+    readonly property color text: c.text ?? "#e6e0ed"
+    readonly property color textSecondary: c.textSecondary ?? "#c9c4d4"
+    readonly property color textMuted: c.textMuted ?? "#938e9e"
 
-    readonly property color outline: c.outline ?? "#3f4a49"
-    readonly property color outlineVariant: c.outlineVariant ?? "#2a3433"
+    readonly property color outline: c.outline ?? "#938e9e"
+    readonly property color outlineVariant: c.outlineVariant ?? "#484553"
 
     // --- Accent -------------------------------------------------------------
-    readonly property color accent: c.accent ?? "#9bd0cc"
-    readonly property color accentContainer: c.accentContainer ?? "#255b58"
-    readonly property color onAccent: c.onAccent ?? "#0d4845"
+    readonly property color accent: c.accent ?? "#cbbeff"
+    readonly property color accentContainer: c.accentContainer ?? "#493e76"
+    readonly property color onAccent: c.onAccent ?? "#32285e"
 
     // --- Semantic -----------------------------------------------------------
     readonly property color success: c.success ?? "#a9d5a0"
     readonly property color warning: c.warning ?? "#e8c98a"
-    readonly property color error: c.error ?? "#f2b8b5"
+    readonly property color error: c.error ?? "#ffb4ab"
 
     readonly property color shadow: c.shadow ?? "#000000"
 
