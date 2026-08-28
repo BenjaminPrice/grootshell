@@ -81,7 +81,15 @@ Item {
                 return;
 
             if (xhr.status !== 200) {
-                root.status = `Failed (${xhr.status})`;
+                // 0 means no HTTP response at all — the request never left, or
+                // never came back. That is a different problem from the endpoint
+                // saying no, and conflating the two under "Failed" is what made
+                // this undiagnosable from the panel.
+                root.status = xhr.status === 0 ? "No response — check the network" : `Rejected (${xhr.status})`;
+
+                // To the journal as well, because the panel has room for a
+                // phrase and this needs a status line.
+                console.warn("grootshell: translate failed —", "status:", xhr.status, "statusText:", xhr.statusText || "(none)", "body:", (xhr.responseText || "").slice(0, 200));
                 return;
             }
 
@@ -94,6 +102,7 @@ Item {
                 root.status = "";
             } catch (e) {
                 root.status = "Could not read the response";
+                console.warn("grootshell: translate parse failed —", e, "body:", (xhr.responseText || "").slice(0, 200));
             }
         };
         xhr.send();
@@ -163,7 +172,12 @@ Item {
                     text: "Text to translate"
                     color: Theme.textMuted
                     font.pixelSize: Appearance.font.size.sm
-                    visible: source.text === ""
+                    // Hidden while the IME is composing, not just when text has
+                    // been committed. A preedit string is not `text` yet — it is
+                    // drawn over the field by the input method — so binding this
+                    // to text alone left the placeholder sitting underneath half
+                    // a Japanese word until the first Enter.
+                    visible: source.text === "" && !source.inputMethodComposing
                 }
             }
         }
