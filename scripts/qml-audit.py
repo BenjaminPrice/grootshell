@@ -24,6 +24,10 @@ Each rule here exists because it shipped:
                         file importing both QtQuick and this module then has two.
                         Shipped once, as State.qml against QtQuick's State.
 
+  reserved-word         A property named with a word QML reserves. Parses, then
+                        fails at load with "Reserved keyword ... cannot be used
+                        as a QML identifier". Shipped once, as `transient`.
+
   shadowed-required     A delegate redeclaring a `required property` its own base
                         type already declares. The redeclaration is a SECOND
                         property; the view fills that one and the base type's
@@ -38,6 +42,30 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+
+# Words QML will not accept as an identifier. Determined by feeding each
+# candidate to qmllint rather than taken from a language reference: most are
+# Java-flavoured future-reserved words that no JavaScript programmer would
+# expect, which is exactly why this is worth checking mechanically.
+RESERVED_WORDS = frozenset(
+    {
+        "abstract",
+        "as",
+        "enum",
+        "implements",
+        "interface",
+        "native",
+        "package",
+        "private",
+        "protected",
+        "public",
+        "static",
+        "synchronized",
+        "throws",
+        "transient",
+        "volatile",
+    }
+)
 
 # Properties QQuickItem already provides. Redeclaring any of these inside a
 # component whose base is an Item shadows the original.
@@ -136,6 +164,16 @@ def audit(path: Path, required: dict[str, set[str]] | None = None) -> list[tuple
                         "redeclaring it shadows the property that type reads",
                     )
                 )
+
+    for prop in PROPERTY.finditer(text):
+        if prop.group(1) in RESERVED_WORDS:
+            findings.append(
+                (
+                    line_of(text, prop.start()),
+                    "reserved-word",
+                    f"'{prop.group(1)}' is a reserved word in QML and cannot name a property",
+                )
+            )
 
     if path.stem in BUILTIN_TYPES:
         findings.append(

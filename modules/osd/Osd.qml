@@ -11,9 +11,9 @@ import qs.components
 // server changed, not because anything called in. Volume keeps working when the
 // shell is dead.
 //
-// Shown three ways: transiently when the volume actually changes, while the
+// Shown three ways: briefly when the volume actually changes, while the
 // pointer is on the right border beside it, and pinned open by the bar's volume
-// icon. The transient case takes NO pointer input — it appears where a pointer
+// icon. The brief case takes NO pointer input — it appears where a pointer
 // might be doing something else and stealing that click would be rude. Only the
 // trigger strip on the border itself is permanently live, and it is as narrow as
 // the border it sits on.
@@ -24,11 +24,15 @@ Item {
     readonly property int inset: Config.border.thickness
 
     // Raised by a volume change and dropped by the timer below.
-    property bool transient: false
+    //
+    // Named `flash` and not `transient`: that is a reserved word in QML and a
+    // property cannot take it. It parses cleanly and fails at load, which is the
+    // exact shape of mistake scripts/qml-audit.py exists to catch.
+    property bool flash: false
     property bool micMode: false
 
     readonly property bool hovering: edgeZone.containsMouse || bodyHover.containsMouse
-    readonly property bool showing: root.transient || ShellState.volume || root.hovering || linger.running
+    readonly property bool showing: root.flash || ShellState.volume || root.hovering || linger.running
 
     // What shell.qml puts in the input mask. The trigger strip is always live;
     // the body only once something has deliberately opened it, so a readout that
@@ -49,7 +53,7 @@ Item {
         target: Volume
         function onChanged(isMic: bool): void {
             root.micMode = isMic;
-            root.transient = true;
+            root.flash = true;
             hide.restart();
         }
     }
@@ -57,7 +61,7 @@ Item {
     Timer {
         id: hide
         interval: Config.osd.timeout
-        onTriggered: root.transient = false
+        onTriggered: root.flash = false
     }
 
     // Keeps the panel up for a moment after the pointer leaves. Without it,
