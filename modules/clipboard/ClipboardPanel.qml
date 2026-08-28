@@ -143,7 +143,7 @@ Panel {
 
                     Icon {
                         text: entry.modelData.isImage ? "image" : "notes"
-                        color: Theme.textMuted
+                        color: index === root.selected ? Theme.onAccentContainerMuted : Theme.textMuted
                         size: Appearance.font.size.md
                     }
 

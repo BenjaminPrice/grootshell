@@ -231,7 +231,7 @@ DockedPanel {
                         StyledText {
                             Layout.fillWidth: true
                             text: row.modelData.genericName ?? ""
-                            color: Theme.textMuted
+                            color: index === root.selected ? Theme.onAccentContainerMuted : Theme.textMuted
                             font.pixelSize: Appearance.font.size.xs
                             visible: text !== ""
                         }

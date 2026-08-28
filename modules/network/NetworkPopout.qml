@@ -166,7 +166,7 @@ Panel {
 
                     Icon {
                         text: "lock"
-                        color: Theme.textMuted
+                        color: network.active ? Theme.onAccentContainerMuted : Theme.textMuted
                         size: Appearance.font.size.xs
                         visible: network.secured
                     }

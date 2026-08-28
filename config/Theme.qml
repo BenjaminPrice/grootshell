@@ -94,6 +94,16 @@ Singleton {
     readonly property color onAccent: c.onAccent ?? "#32285e"
     readonly property color onAccentContainer: c.onAccentContainer ?? "#ffffff"
 
+    // Secondary text ON a container fill — the generic name under an app in the
+    // launcher, the detail line under a network. Dimmed to keep the hierarchy
+    // the muted greys give elsewhere, which those greys cannot do here because
+    // they are chosen to sit on a dark surface, not a bright accent.
+    //
+    // 0.8, and not lower, because these are the smallest labels in the UI: at
+    // 0.7 the worst-case pairing measures 3.63:1, under the 4.5:1 that small
+    // text needs. Measured against a yellow wallpaper rather than picked.
+    readonly property color onAccentContainerMuted: Qt.alpha(onAccentContainer, 0.8)
+
     // --- Semantic -----------------------------------------------------------
     readonly property color success: c.success ?? "#a9d5a0"
     readonly property color warning: c.warning ?? "#e8c98a"
