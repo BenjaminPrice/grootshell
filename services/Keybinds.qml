@@ -50,8 +50,8 @@ Singleton {
             // One cap rather than four keys: the modal renders extras as
             // "or X", which reads as alternatives for the same action instead
             // of a range where each key means something different.
-            keys: ["1 – 4"],
-            description: "Jump to Dashboard, Media, Performance or Wallpaper"
+            keys: ["1 – 5"],
+            description: "Jump to Dashboard, Media, Performance, Wallpaper or Weather"
         },
         {
             category: "Dashboard panel",

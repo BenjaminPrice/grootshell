@@ -118,6 +118,13 @@ Item {
                 w: 1190,
                 h: 310
             },
+            weather: {
+                // Wide enough for the current conditions beside a twelve-hour
+                // strip, tall enough for ten daily rows under it without the
+                // list becoming a scroller for the sake of one row.
+                w: 940,
+                h: 470
+            },
             wallpaper: {
                 // The biggest tab, because it is the only one whose content is
                 // photographs. A thumbnail below roughly 250px tells you the
@@ -261,7 +268,7 @@ Item {
         Keys.onPressed: event => root.route(event)
     }
 
-    readonly property var tabIds: ["dashboard", "media", "performance", "wallpaper"]
+    readonly property var tabIds: ["dashboard", "media", "performance", "wallpaper", "weather"]
 
     // Focus has to be taken after the panel is actually on screen. It grows from
     // a pill, so on the frame `open` flips there is nothing yet to focus.
@@ -375,6 +382,11 @@ Item {
                             id: "wallpaper",
                             icon: "wallpaper",
                             label: "Wallpaper"
+                        },
+                        {
+                            id: "weather",
+                            icon: "partly_cloudy_day",
+                            label: "Weather"
                         }
                     ]
 
@@ -439,7 +451,12 @@ Item {
                 Media {
                     id: mediaTab
                 }
-                // No handleKey: a row of dials has nothing to operate.
+                // ORDER MATTERS. currentIndex is an index into tabIds, so these
+                // pages have to appear in exactly that order — a page inserted
+                // in the wrong place silently shows the wrong tab's contents.
+                //
+                // No handleKey on Performance or WeatherTab: a row of dials and
+                // a forecast have nothing to operate.
                 Performance {}
                 WallpaperTab {
                     id: wallpaperTab
@@ -449,6 +466,7 @@ Item {
                     // on any tab at all.
                     active: root.open && ShellState.islandTab === "wallpaper"
                 }
+                WeatherTab {}
             }
         }
     }

@@ -25,6 +25,7 @@ Singleton {
     property alias osd: adapter.osd
     property alias wallpaper: adapter.wallpaper
     property alias services: adapter.services
+    property alias weather: adapter.weather
 
     FileView {
         path: `${root.configDir}/shell.json`
@@ -47,6 +48,7 @@ Singleton {
             property Osd osd: Osd {}
             property Wallpaper wallpaper: Wallpaper {}
             property Services services: Services {}
+            property Weather weather: Weather {}
 
             // Global size multipliers, read by config/Appearance.qml. This is
             // the knob for "I am on the sofa, not at the desk" — bump fontScale
@@ -161,6 +163,32 @@ Singleton {
                 // and lives in services/Persist.qml. See the note there.
             }
 
+            // Open-Meteo, which needs no API key. That is not a convenience —
+            // it is what makes the forecast work for anyone who clones this
+            // repo. A shell that asks every user to register for a key before
+            // the weather tab does anything is a shell nobody else runs.
+            component Weather: JsonObject {
+                // A place name, geocoded on first use: "Osaka", "Osaka, Japan",
+                // "Shinjuku". Empty by default and deliberately so — there is no
+                // sensible guess, and a wrong city shown confidently is worse
+                // than a panel that says where to set it.
+                property string location: ""
+
+                // "metric" or "imperial". Passed straight through to the API,
+                // which does the conversion, so there is no unit arithmetic on
+                // this side to get wrong.
+                property string units: "metric"
+
+                // Open-Meteo allows up to 16. Ten fits the tab without the rows
+                // becoming a wall, and the last few days of any forecast are
+                // closer to climate than weather anyway.
+                property int days: 10
+
+                // The upstream model updates hourly, so polling faster than this
+                // asks a free service for a number that has not changed.
+                property int updateMinutes: 15
+            }
+
             component Services: JsonObject {
                 // Polling intervals, in milliseconds. There is no native metrics
                 // plugin here — everything comes from Process calls to ordinary
@@ -206,8 +234,6 @@ Singleton {
                 // should not mean decrypting a file.
                 //   { "Work": "#7aa2f7", "Family": "#9ece6a" }
                 property var calendarColours: ({})
-                property var mediaPlayerNames: ["pear-desktop", "YouTube Music"]
-                property string weatherLocation: ""
             }
         }
     }
