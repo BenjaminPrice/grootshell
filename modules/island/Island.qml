@@ -38,8 +38,8 @@ DockedPanel {
     // scaled type would clip the moment the scale went up.
     readonly property var sizes: ({
             dashboard: {
-                w: 460,
-                h: 300
+                w: 700,
+                h: 400
             },
             media: {
                 w: 660,

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs.config
 import qs.services
 import qs.components
@@ -9,6 +10,26 @@ import qs.components
 
 Item {
     id: root
+
+    // Prefers the .desktop entry so the app starts with whatever environment
+    // its packager set, and falls back to the bare command for a player that
+    // ships no entry. Through Apps.launch either way, so it survives the shell
+    // restarting — the dev loop does that constantly and killing the music with
+    // it would be its own small tragedy.
+    function launchPlayer(): void {
+        const names = Config.services.mediaPlayerNames ?? [];
+        for (let i = 0; i < names.length; i++) {
+            let entry = null;
+            try {
+                entry = DesktopEntries.heuristicLookup(String(names[i]));
+            } catch (e) {}
+            if (entry) {
+                Apps.launchEntry(entry);
+                return;
+            }
+        }
+        Apps.launch([Config.services.mediaPlayerCommand]);
+    }
 
     // --- Nothing playing ----------------------------------------------------
     ColumnLayout {
@@ -27,6 +48,43 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             text: "Nothing playing"
             color: Theme.textMuted
+        }
+
+        // The obvious next move when there is nothing playing, rather than
+        // something to go and find in the launcher.
+        Rectangle {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: Appearance.spacing.sm
+            implicitWidth: launchRow.implicitWidth + Appearance.padding.lg * 2
+            implicitHeight: launchRow.implicitHeight + Appearance.padding.sm * 2
+            radius: Appearance.rounding.full
+            color: launchHover.containsMouse ? Theme.accent : Theme.accentContainer
+
+            RowLayout {
+                id: launchRow
+                anchors.centerIn: parent
+                spacing: Appearance.spacing.xs
+
+                Icon {
+                    text: "play_circle"
+                    color: launchHover.containsMouse ? Theme.onAccent : Theme.onAccentContainer
+                    size: Appearance.font.size.md
+                }
+
+                StyledText {
+                    text: "Open YouTube Music"
+                    color: launchHover.containsMouse ? Theme.onAccent : Theme.onAccentContainer
+                    font.pixelSize: Appearance.font.size.xs
+                }
+            }
+
+            MouseArea {
+                id: launchHover
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.launchPlayer()
+            }
         }
     }
 
@@ -70,11 +128,36 @@ Item {
             Layout.alignment: Qt.AlignVCenter
             spacing: Appearance.spacing.xs
 
-            StyledText {
+            RowLayout {
                 Layout.fillWidth: true
-                text: Players.title
-                font.pixelSize: Appearance.font.size.lg
-                color: Theme.text
+                spacing: Appearance.spacing.sm
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: Players.title
+                    font.pixelSize: Appearance.font.size.lg
+                    color: Theme.text
+                    elide: Text.ElideRight
+                }
+
+                // Raises the player's own window. Small and unlabelled here,
+                // unlike the button in the empty state: with something already
+                // playing this is a way back to the app, not the main thing you
+                // came to the tab to do.
+                Icon {
+                    text: "open_in_new"
+                    color: openHover.containsMouse ? Theme.accent : Theme.textMuted
+                    size: Appearance.font.size.md
+
+                    MouseArea {
+                        id: openHover
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.launchPlayer()
+                    }
+                }
             }
 
             StyledText {

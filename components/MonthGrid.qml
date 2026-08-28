@@ -187,7 +187,11 @@ Item {
                     readonly property bool hasEvents: root.eventDays[root.key(modelData)] === true
 
                     Layout.fillWidth: true
-                    implicitHeight: Appearance.font.size.lg + Appearance.padding.sm * 2
+                    // Compact deliberately. Six rows at the large type came to
+                    // ~306px of grid, which did not fit the tab and silently
+                    // clipped the last fortnight — a calendar missing its bottom
+                    // half looks like a rendering fault, not a small panel.
+                    implicitHeight: Appearance.font.size.md + Appearance.padding.xs * 2
 
                     Rectangle {
                         anchors.centerIn: parent
@@ -204,7 +208,7 @@ Item {
                         // month, and the leading/trailing days that are only
                         // there to keep the grid six rows tall.
                         color: cell.isToday ? Theme.onAccentContainer : cell.inMonth ? Theme.text : Theme.outlineVariant
-                        font.pixelSize: Appearance.font.size.sm
+                        font.pixelSize: Appearance.font.size.xs
                     }
 
                     MouseArea {
@@ -220,11 +224,11 @@ Item {
                     Rectangle {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 2
+                        anchors.bottomMargin: 1
                         visible: cell.hasEvents
-                        width: 4
-                        height: 4
-                        radius: 2
+                        width: 3
+                        height: 3
+                        radius: 1.5
                         color: cell.isToday ? Theme.onAccentContainer : cell.inMonth ? Theme.accent : Theme.outlineVariant
                     }
                 }

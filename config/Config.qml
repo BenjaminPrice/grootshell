@@ -132,6 +132,12 @@ Singleton {
                 // now pear-devs/pear-desktop — and which string the app reports
                 // is its own business, not something to pin a rebuild on.
                 property var preferredPlayers: ["youtube music", "pear"]
+
+                // What the media tab's launch button starts. A desktop entry is
+                // looked up first so the app gets the environment its packager
+                // intended; this is the fallback when there is no entry to find.
+                property string mediaPlayerCommand: "pear-desktop"
+                property var mediaPlayerNames: ["pear-desktop", "YouTube Music"]
                 property string weatherLocation: ""
             }
         }
