@@ -33,7 +33,10 @@ Rectangle {
     readonly property var actions: notification?.actions ?? []
     readonly property bool hasActions: actions.length > 0
 
-    signal dismissed
+    // Emitted by the close button and by a completed drag. What it MEANS is the
+    // consumer's business: the centre removes the row, a toast dismisses the
+    // notification outright — which is what dragging a toast away has always
+    // done, so the button matching it keeps one gesture from meaning two things.
     signal discarded
 
     // Holds expiry while the pointer is over this card. Balanced on destruction
@@ -167,6 +170,27 @@ Rectangle {
                         anchors.margins: -Appearance.padding.xs
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.expanded = !root.expanded
+                    }
+                }
+
+                // Always shown, not revealed on hover. A toast is counting down
+                // while you decide, and a control you have to go looking for is
+                // one you will not reach in time — which is the whole reason
+                // drag-to-dismiss existed as the only way out.
+                Icon {
+                    id: closeButton
+
+                    text: "close"
+                    color: closeHover.containsMouse ? Theme.error : Theme.textSecondary
+                    size: Appearance.font.size.md
+
+                    MouseArea {
+                        id: closeHover
+                        anchors.fill: parent
+                        anchors.margins: -Appearance.padding.xs
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.discarded()
                     }
                 }
             }

@@ -58,6 +58,13 @@ Singleton {
         onNotification: notif => {
             notif.tracked = true;
 
+            // A notification can go away without us dismissing it: the sender
+            // closes it, or the server expires it. Both emit `closed`, and
+            // without this the models keep a reference to an object that is on
+            // its way out — which is what made some rows unclearable, and made
+            // Clear all abort partway through when it hit one.
+            notif.closed.connect(() => root.forget(notif));
+
             // Arrival time is recorded here because Notification carries none,
             // and it cannot be attached to the object itself — it is a C++
             // QObject. A model role is the only place it can live.
@@ -109,6 +116,19 @@ Singleton {
         }
     }
 
+    // Drop it from both models WITHOUT dismissing. Used when the notification
+    // has already gone — dismissing something that is already closed is at best
+    // redundant and at worst a call into a dead object.
+    function forget(notif): void {
+        const p = root.indexIn(popupModel, notif);
+        if (p >= 0)
+            popupModel.remove(p);
+
+        const a = root.indexIn(allModel, notif);
+        if (a >= 0)
+            allModel.remove(a);
+    }
+
     function indexIn(model, notif): int {
         for (let i = 0; i < model.count; i++)
             if (model.get(i).notification === notif)
@@ -124,22 +144,47 @@ Singleton {
             popupModel.remove(i);
     }
 
+    // Rows come out of the models FIRST, then the notification is dismissed.
+    //
+    // The other order does not work: dismiss() emits `closed`, whose handler
+    // removes the row, so the model mutates underneath whatever loop is walking
+    // it. Removing first makes the handler a no-op and leaves nothing to trip
+    // over.
     function dismiss(notif): void {
-        dismissPopup(notif);
+        root.forget(notif);
+        root.tell(notif);
+    }
 
-        const i = indexIn(allModel, notif);
-        if (i >= 0)
-            allModel.remove(i);
-
-        notif.dismiss();
+    // One dismissal that cannot take the rest down with it. A notification whose
+    // sender has gone leaves an object that throws on any call, and a throw here
+    // used to abandon every row after it.
+    function tell(notif): void {
+        try {
+            if (notif)
+                notif.dismiss();
+        } catch (e) {
+            // Already gone. The row is out of the model either way, which is the
+            // part that matters.
+        }
     }
 
     function clear(): void {
         popupModel.clear();
-        while (allModel.count > 0) {
-            allModel.get(0).notification.dismiss();
-            allModel.remove(0);
+
+        // Snapshot, empty the model, then dismiss. Reading `get(0)` in a loop
+        // that also removes rows means every dismissal shifts the ground under
+        // the next read, and one bad object ended the whole operation.
+        const pending = [];
+        for (let i = 0; i < allModel.count; i++) {
+            const row = allModel.get(i);
+            if (row?.notification)
+                pending.push(row.notification);
         }
+
+        allModel.clear();
+
+        for (let i = 0; i < pending.length; i++)
+            root.tell(pending[i]);
     }
 
     // Turning DND on should clear what is already on screen, otherwise it only
