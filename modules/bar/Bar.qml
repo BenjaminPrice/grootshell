@@ -214,17 +214,18 @@ Item {
 
                 Icon {
                     text: Volume.icon()
-                    color: ShellState.volume ? Theme.accent : Volume.muted ? Theme.error : Theme.textSecondary
+                    color: Volume.muted ? Theme.error : Theme.textSecondary
                     size: Appearance.font.size.lg
 
                     MouseArea {
                         anchors.fill: parent
                         anchors.margins: -4
                         cursorShape: Qt.PointingHandCursor
-                        // The same readout the right edge shows on hover, so
-                        // there is one volume surface reachable two ways rather
-                        // than a second one that happens to look alike.
-                        onClicked: ShellState.volume = !ShellState.volume
+                        // Toggles mute, and the readout on the right edge shows
+                        // itself because the service emits a change — the same
+                        // path a volume key takes. No special case for "opened
+                        // from the bar", so there is one way the OSD appears.
+                        onClicked: Volume.toggleMute()
                     }
                 }
 

@@ -11,8 +11,10 @@ import qs.components
 // server changed, not because anything called in. Volume keeps working when the
 // shell is dead.
 //
-// Shown three ways: briefly when the volume actually changes, while the pointer
-// is on the right border beside it, and pinned open by the bar's volume icon.
+// Shown two ways: briefly whenever the level or the mute state actually changes
+// — which is how the bar's volume icon surfaces it, since that toggles mute and
+// the change comes back through PipeWire like any other — and for as long as the
+// pointer is on the right border beside it.
 //
 // A DockedPanel like every other panel, so it extrudes from the border with the
 // same inverted corners rather than floating next to it as a separate card. It
@@ -31,13 +33,13 @@ Item {
     property bool micMode: false
 
     readonly property bool hovering: edgeZone.containsMouse || bodyHover.containsMouse
-    readonly property bool showing: root.flash || ShellState.volume || root.hovering || linger.running
+    readonly property bool showing: root.flash || root.hovering || linger.running
 
     // What shell.qml puts in the input mask. The trigger strip is always live;
-    // the body only once something has deliberately opened it, so a readout that
+    // the body only while the pointer is actually on it, so a readout that
     // flashed up from a keypress never swallows a click.
     readonly property alias trigger: edgeZone
-    readonly property bool wantsInput: !GameMode.enabled && (ShellState.volume || root.hovering || linger.running)
+    readonly property bool wantsInput: !GameMode.enabled && (root.hovering || linger.running)
 
     implicitWidth: panel.implicitWidth
     implicitHeight: panel.implicitHeight
@@ -94,6 +96,17 @@ Item {
         // leave the level bar a few pixels wide.
         padding: Appearance.padding.sm
 
+        // Sustains the hover once the pointer has crossed onto the body, and
+        // nothing else. Declared BEFORE the content above so it sits underneath
+        // the mute button — and NoButton besides, so a press falls through to
+        // whatever is under it rather than being swallowed here.
+        MouseArea {
+            id: bodyHover
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+        }
+
         ColumnLayout {
             anchors.fill: parent
             spacing: Appearance.spacing.sm
@@ -109,7 +122,7 @@ Item {
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
-                    height: parent.height * (root.micMode ? Volume.micVolume : Volume.volume)
+                    height: parent.height * (root.micMode ? Volume.micLevel : Volume.level)
                     radius: parent.radius
                     color: (root.micMode ? Volume.micMuted : Volume.muted) ? Theme.textMuted : Theme.accent
 
@@ -123,30 +136,37 @@ Item {
                 }
             }
 
+            // Clicking it mutes, matching the tray icon. The mic and the sink
+            // are separate mutes and this follows whichever the readout is
+            // currently showing, so the button always means the thing on screen.
             Icon {
+                id: muteButton
+
                 Layout.alignment: Qt.AlignHCenter
                 text: root.micMode ? (Volume.micMuted ? "mic_off" : "mic") : Volume.icon()
-                color: Theme.text
+                color: (root.micMode ? Volume.micMuted : Volume.muted) ? Theme.error : Theme.text
                 size: Appearance.font.size.lg
+
+                MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (root.micMode)
+                            Volume.toggleMicMute();
+                        else
+                            Volume.toggleMute();
+                    }
+                }
             }
 
             StyledText {
                 Layout.alignment: Qt.AlignHCenter
-                text: `${Math.round((root.micMode ? Volume.micVolume : Volume.volume) * 100)}`
+                text: `${Math.round((root.micMode ? Volume.micLevel : Volume.level) * 100)}`
                 color: Theme.textSecondary
                 font.pixelSize: Appearance.font.size.xs
                 mono: true
             }
-        }
-
-        // Sustains the hover once the pointer has crossed onto the body, and
-        // nothing else — this is a readout, and the volume keys remain the way
-        // volume is set. No buttons, so it cannot swallow a click either.
-        MouseArea {
-            id: bodyHover
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.NoButton
         }
     }
 

@@ -15,6 +15,11 @@ import Quickshell.Services.Pipewire
 // find out by watching PipeWire. That inversion is on purpose — volume keys
 // keep working when the shell is dead, and the OSD becomes a thing that observes
 // the system rather than a thing the system depends on.
+//
+// Mute is the one exception, and only because it has no key. It is written
+// straight to the node rather than shelled out to wpctl: the property is already
+// bound both ways, so there is nothing a subprocess would add except latency and
+// a second thing that can fail.
 
 Singleton {
     id: root
@@ -27,6 +32,12 @@ Singleton {
 
     readonly property real micVolume: source?.audio?.volume ?? 0
     readonly property bool micMuted: source?.audio?.muted ?? false
+
+    // What a READOUT should show: muted reads as zero, because that is what you
+    // can hear. The underlying volume is deliberately left alone so unmuting
+    // returns to where you were rather than to silence.
+    readonly property real level: root.muted ? 0 : root.volume
+    readonly property real micLevel: root.micMuted ? 0 : root.micVolume
 
     // Without this the node's audio properties are never populated — Quickshell
     // binds PipeWire objects lazily and only tracked ones get live data.
@@ -51,6 +62,18 @@ Singleton {
     onVolumeChanged: if (root.ready) root.changed(false)
     onMutedChanged: if (root.ready) root.changed(false)
     onMicMutedChanged: if (root.ready) root.changed(true)
+
+    function toggleMute(): void {
+        const audio = root.sink?.audio;
+        if (audio)
+            audio.muted = !audio.muted;
+    }
+
+    function toggleMicMute(): void {
+        const audio = root.source?.audio;
+        if (audio)
+            audio.muted = !audio.muted;
+    }
 
     function icon(): string {
         if (root.muted || root.volume <= 0)
