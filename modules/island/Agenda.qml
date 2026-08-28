@@ -359,6 +359,22 @@ Item {
                 color: Theme.textMuted
                 font.pixelSize: Appearance.font.size.xs
                 wrapMode: Text.Wrap
+                // Inherited from StyledText, where it is elide-right by default.
+                // Wrapping text that also elides loses the last line to an
+                // ellipsis it does not need.
+                elide: Text.ElideNone
+
+                // A legible link may as well be a working one. The join buttons
+                // above remain the primary route — they are lifted out precisely
+                // so nobody has to find the link in here — but anything the
+                // pattern list did not recognise is still reachable this way.
+                onLinkActivated: link => Apps.launch(["xdg-open", link])
+
+                HoverHandler {
+                    // Only over an actual link, so the cursor does not promise
+                    // something clickable across a paragraph of boilerplate.
+                    cursorShape: description.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+                }
             }
         }
     }
