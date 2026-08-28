@@ -57,8 +57,10 @@ DockedPanel {
                 h: 400
             },
             media: {
-                w: 660,
-                h: 340
+                // Tall enough for a 240px disc plus the tab row above it, wide
+                // enough that the title beside it is not a column of two words.
+                w: 720,
+                h: 360
             },
             performance: {
                 // Wide enough for one row of dials at roughly 20% larger than

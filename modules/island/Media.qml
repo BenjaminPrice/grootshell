@@ -1,12 +1,23 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Widgets
 import qs.config
 import qs.services
 import qs.components
 
 // Whatever is playing. Defaults to YouTube Music rather than Spotify — see
 // Config.services.preferredPlayers and the selection rules in services/Players.qml.
+//
+// The artwork is a disc with a spectrum ring around it. Both halves of that are
+// deliberate. Album art is square everywhere else in computing because that is
+// how it is FILED, not how it was ever listened to, and a circle is the shape
+// the object actually had — which matters here because this panel is looked at
+// from across a room, where a small square reads as "an image" and a disc reads
+// as "music". The ring then has somewhere to live that was already empty space.
+//
+// See components/Waveform.qml for the ring and services/Cava.qml for where the
+// numbers come from.
 
 Item {
     id: root
@@ -148,42 +159,101 @@ Item {
     // --- Playing ------------------------------------------------------------
     RowLayout {
         anchors.fill: parent
-        spacing: Appearance.spacing.lg
+        spacing: Appearance.spacing.xl
         visible: Players.hasActive
 
-        // Album art. Fixed square so the layout does not jump between tracks
-        // with different aspect ratios.
-        Rectangle {
-            Layout.preferredWidth: 128
-            Layout.preferredHeight: 128
-            Layout.alignment: Qt.AlignVCenter
-            radius: Appearance.rounding.normal
-            color: Theme.surfaceContainerHigh
-            clip: true
+        // --- The disc -------------------------------------------------------
+        //
+        // Square by construction: the ring is a circle and the artwork is
+        // inscribed in it, so anything but a square box would make an ellipse of
+        // both. Sized from the panel's own height rather than fixed, so the
+        // "sofa, not desk" font scale moves it with everything else.
+        Item {
+            id: disc
 
-            Image {
+            // From the tab's own height, not the RowLayout's. The layout's
+            // height comes from anchors, so neither can feed back into the
+            // other, but reading the thing that is actually authoritative says
+            // so without the reader having to work it out.
+            readonly property real span: Math.min(root.height, 240)
+
+            Layout.preferredWidth: disc.span
+            Layout.preferredHeight: disc.span
+            Layout.alignment: Qt.AlignVCenter
+
+            // Ring geometry, derived from the box so the three radii cannot
+            // drift apart: bars start just outside the artwork and reach almost
+            // to the edge.
+            readonly property real ringInner: disc.span * 0.34
+            readonly property real ringMax: disc.span * 0.13
+            readonly property real artRadius: disc.ringInner - Appearance.spacing.sm
+
+            Waveform {
                 anchors.fill: parent
-                source: Players.artUrl
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                sourceSize.width: 256
-                sourceSize.height: 256
-                visible: status === Image.Ready
+                levels: Cava.levels
+                innerRadius: disc.ringInner
+                maxLength: disc.ringMax
+                minLength: Math.max(2, disc.span * 0.014)
+                barWidth: Math.max(3, disc.span * 0.018)
+                color: Theme.accent
+
+                // Dimmed rather than hidden while paused. The ring is part of
+                // the composition — the artwork looks unfinished without it —
+                // but a static ring at full strength claims to be showing you
+                // something live.
+                opacity: Players.playing ? 1 : 0.35
+
+                Behavior on opacity {
+                    enabled: Appearance.anim.enabled
+                    NumberAnimation {
+                        duration: Appearance.anim.normal
+                    }
+                }
             }
 
-            Icon {
+            // The artwork, cropped to a disc.
+            //
+            // ClippingRectangle rather than a Rectangle with a radius: a plain
+            // Rectangle's `clip` is its bounding box and ignores the corner
+            // radius entirely, so the image would keep its square corners and
+            // only the fill behind it would be round.
+            ClippingRectangle {
                 anchors.centerIn: parent
-                text: "album"
-                color: Theme.textMuted
-                size: Appearance.font.size.xxl
-                visible: Players.artUrl === ""
+                implicitWidth: disc.artRadius * 2
+                implicitHeight: disc.artRadius * 2
+                radius: width / 2
+                color: Theme.surfaceContainerHigh
+
+                Image {
+                    anchors.fill: parent
+                    source: Players.artUrl
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    sourceSize.width: 512
+                    sourceSize.height: 512
+                    visible: status === Image.Ready
+                }
+
+                Icon {
+                    anchors.centerIn: parent
+                    text: "album"
+                    color: Theme.textMuted
+                    size: Appearance.font.size.xxl
+                    visible: Players.artUrl === ""
+                }
             }
         }
 
+        // --- Details and transport ------------------------------------------
         ColumnLayout {
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.alignment: Qt.AlignVCenter
             spacing: Appearance.spacing.xs
+
+            Item {
+                Layout.fillHeight: true
+            }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -230,6 +300,7 @@ Item {
                 Layout.fillWidth: true
                 text: Players.artist
                 color: Theme.textSecondary
+                elide: Text.ElideRight
             }
 
             StyledText {
@@ -237,6 +308,7 @@ Item {
                 text: Players.album
                 color: Theme.textMuted
                 font.pixelSize: Appearance.font.size.xs
+                elide: Text.ElideRight
                 visible: Players.album !== "" && Players.album !== Players.title
             }
 
@@ -247,6 +319,7 @@ Item {
             // --- Progress ---------------------------------------------------
             Rectangle {
                 Layout.fillWidth: true
+                Layout.topMargin: Appearance.spacing.sm
                 implicitHeight: 4
                 radius: 2
                 color: Theme.surfaceContainerHighest
@@ -300,6 +373,7 @@ Item {
             // --- Transport --------------------------------------------------
             RowLayout {
                 Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: Appearance.spacing.xs
                 spacing: Appearance.spacing.md
 
                 Control {
@@ -320,6 +394,10 @@ Item {
                     interactive: Players.active?.canGoNext ?? false
                     onActivated: Players.next()
                 }
+            }
+
+            Item {
+                Layout.fillHeight: true
             }
         }
     }
