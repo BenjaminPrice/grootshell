@@ -63,6 +63,46 @@ Singleton {
     onMutedChanged: if (root.ready) root.changed(false)
     onMicMutedChanged: if (root.ready) root.changed(true)
 
+    // Setting a level, not just muting.
+    //
+    // Written straight to the node, like mute. The keys still go through wpctl
+    // so they work when the shell is dead, but there are no volume keys on a
+    // MacBook driving this over Moonlight — the panel IS the control there, and
+    // a readout you cannot drag leaves only mute, which is 0 or 100 and nothing
+    // between.
+    //
+    // Raising the level unmutes: dragging a muted slider up and getting silence
+    // is not a state anyone means to be in.
+    function setLevel(level: real): void {
+        const audio = root.sink?.audio;
+        if (!audio)
+            return;
+        const clamped = Math.max(0, Math.min(1, level));
+        audio.volume = clamped;
+        if (clamped > 0 && audio.muted)
+            audio.muted = false;
+    }
+
+    function setMicLevel(level: real): void {
+        const audio = root.source?.audio;
+        if (!audio)
+            return;
+        const clamped = Math.max(0, Math.min(1, level));
+        audio.volume = clamped;
+        if (clamped > 0 && audio.muted)
+            audio.muted = false;
+    }
+
+    // Relative, from what is currently AUDIBLE — so a nudge up from muted lands
+    // at the step rather than back where the level happened to be left.
+    function adjust(delta: real): void {
+        root.setLevel(root.level + delta);
+    }
+
+    function adjustMic(delta: real): void {
+        root.setMicLevel(root.micLevel + delta);
+    }
+
     function toggleMute(): void {
         const audio = root.sink?.audio;
         if (audio)

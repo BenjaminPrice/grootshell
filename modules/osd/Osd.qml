@@ -105,6 +105,17 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.NoButton
+
+            // Scrolling anywhere on the panel changes the volume, not only over
+            // the bar itself — the panel is 56px wide and aiming inside it on a
+            // streamed pointer is a needless demand.
+            onWheel: wheel => {
+                const step = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                if (root.micMode)
+                    Volume.adjustMic(step);
+                else
+                    Volume.adjust(step);
+            }
         }
 
         ColumnLayout {
@@ -113,11 +124,25 @@ Item {
 
             // Fill rises from the bottom, which is the direction the value moves.
             Rectangle {
+                id: track
+
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 radius: Appearance.rounding.normal
                 color: Theme.surfaceContainerHighest
                 clip: true
+
+                // Bottom is 0 and top is 1, matching the fill.
+                function levelAt(y: real): real {
+                    return 1 - (y / Math.max(1, track.height));
+                }
+
+                function apply(y: real): void {
+                    if (root.micMode)
+                        Volume.setMicLevel(track.levelAt(y));
+                    else
+                        Volume.setLevel(track.levelAt(y));
+                }
 
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -129,9 +154,41 @@ Item {
                     Behavior on height {
                         enabled: Appearance.anim.enabled
                         NumberAnimation {
-                            duration: Appearance.anim.fast
+                            // No easing while dragging: the fill chasing the
+                            // pointer a beat behind reads as lag, not polish.
+                            duration: drag.pressed ? 0 : Appearance.anim.fast
                             easing.type: Easing.OutQuad
                         }
+                    }
+                }
+
+                // The control. Declared last so it sits above the fill.
+                //
+                // Press-and-drag rather than click-only: a 200px-tall bar on a
+                // stream is easier to drag to a level than to hit precisely, and
+                // dragging past either end simply clamps.
+                MouseArea {
+                    id: drag
+
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    preventStealing: true
+
+                    onPressed: mouse => track.apply(mouse.y)
+                    onPositionChanged: mouse => {
+                        if (drag.pressed)
+                            track.apply(mouse.y);
+                    }
+
+                    // Scroll works anywhere over the readout, including the
+                    // parts that are not the bar — see bodyHover, which passes
+                    // wheel events through by taking no buttons.
+                    onWheel: wheel => {
+                        const step = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                        if (root.micMode)
+                            Volume.adjustMic(step);
+                        else
+                            Volume.adjust(step);
                     }
                 }
             }
