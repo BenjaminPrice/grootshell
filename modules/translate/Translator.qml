@@ -52,7 +52,15 @@ Item {
     property string result: ""
     property string status: ""
 
-    onActiveChanged: if (active) source.forceActiveFocus()
+    // Deferred, for the same reason as the wallpaper picker: the panel extrudes
+    // from zero size, so on the frame `active` flips there is nothing on screen
+    // yet, and an invisible item cannot take active focus.
+    onActiveChanged: if (active) Qt.callLater(root.grabFocus)
+
+    function grabFocus(): void {
+        if (root.active)
+            source.forceActiveFocus();
+    }
 
     function translate(): void {
         const text = source.text.trim();
