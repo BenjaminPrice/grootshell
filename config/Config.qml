@@ -77,6 +77,23 @@ Singleton {
                 property int trayIconSize: 28
                 property bool showClock: true
                 property string clockFormat: "ddd d MMM  HH:mm"
+
+                // Tray items that publish no Activate method, mapped to what
+                // left-clicking them should do instead.
+                //
+                // Left-click is meant to call Activate over D-Bus, and a
+                // well-behaved item that has no primary action says so by
+                // setting ItemIsMenu. Steam does neither: introspecting its item
+                // shows SecondaryActivate, XAyatanaSecondaryActivate and Scroll,
+                // and no Activate at all — so the call went nowhere and the icon
+                // looked dead until you right-clicked it.
+                //
+                // Keyed on the item's id. A map rather than a special case in
+                // the bar, because Steam will not be the last application to
+                // ship a half-implemented tray icon.
+                property var trayFallback: ({
+                        steam: ["steam", "steam://open/games"]
+                    })
             }
 
             component Border: JsonObject {

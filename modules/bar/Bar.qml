@@ -167,7 +167,19 @@ Item {
                             // and its right-click menu is how you switch input
                             // method.
                             if (mouse.button !== Qt.RightButton) {
-                                trayItem.modelData.activate();
+                                const id = trayItem.modelData.id ?? "";
+                                const fallback = Config.bar.trayFallback?.[id];
+
+                                // onlyMenu is the compliant way of saying "I
+                                // have no primary action"; the fallback covers
+                                // the items that simply omit Activate without
+                                // saying so.
+                                if (fallback)
+                                    Apps.launch(fallback);
+                                else if (trayItem.modelData.onlyMenu && trayItem.modelData.hasMenu)
+                                    trayItem.modelData.display(QsWindow.window, mouse.x, mouse.y);
+                                else
+                                    trayItem.modelData.activate();
                                 return;
                             }
 
