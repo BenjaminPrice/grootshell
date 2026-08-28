@@ -31,7 +31,7 @@ DockedPanel {
     // so anchoring both edges would fight it. Top-aligned because it grows
     // downward as notifications arrive, and a centred panel would push its own
     // contents around every time one did.
-    readonly property int topDock: Config.bar.height + Config.border.thickness + Appearance.spacing.sm
+    readonly property int topDock: Config.bar.height + Config.border.thickness + Config.bar.gap
     span: Math.round(((parent?.height ?? 1080) - topDock - Config.border.thickness) * 0.5)
 
     ColumnLayout {

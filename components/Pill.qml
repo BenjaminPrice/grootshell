@@ -25,10 +25,14 @@ Rectangle {
 
     property int spacing: Appearance.spacing.md
     property int hpad: Appearance.padding.lg
-    property int vpad: Appearance.padding.xs
 
     implicitWidth: inner.implicitWidth + root.hpad * 2
-    implicitHeight: inner.implicitHeight + root.vpad * 2
+
+    // Fixed, not sized to content. A row of capsules whose heights follow their
+    // own text is a row of subtly different objects, and the eye reads that as
+    // sloppy long before it works out why — the title pill, being text only,
+    // came out visibly shorter than the workspace track beside it.
+    implicitHeight: Math.round(Config.bar.pillHeight * Appearance.font.scale)
 
     radius: Appearance.rounding.full
     color: Theme.frame

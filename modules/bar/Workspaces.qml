@@ -121,7 +121,10 @@ Item {
         id: track
 
         implicitWidth: row.implicitWidth + Appearance.padding.md * 2
-        implicitHeight: row.implicitHeight + Appearance.padding.xs * 2
+        // The same fixed height as components/Pill.qml, so the capsules in the
+        // bar are all one size. This one used to set the height for the row by
+        // being the tallest; now the number lives in Config and both read it.
+        implicitHeight: Math.round(Config.bar.pillHeight * Appearance.font.scale)
         radius: Appearance.rounding.full
         color: Theme.frame
         border.width: 1

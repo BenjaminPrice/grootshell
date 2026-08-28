@@ -78,6 +78,32 @@ Singleton {
                 property bool showClock: true
                 property string clockFormat: "ddd d MMM  HH:mm"
 
+                // Every pill is exactly this tall.
+                //
+                // One number rather than each capsule sizing to its own
+                // contents: a row of pills whose heights follow their text is a
+                // row of subtly different objects, and the eye reads that as
+                // sloppy long before it works out why. The workspace track is
+                // the tallest thing up here — a slot plus its padding — so this
+                // is that, and everything else is padded out to match.
+                property int pillHeight: 40
+
+                // The space between the bottom of the bar's reserved strip and
+                // where a tiled window actually begins: the compositor's
+                // gaps_out plus its window border.
+                //
+                // Mirrored here because the shell cannot ask for either, and the
+                // pills need it to sit right. They float in the band of
+                // wallpaper between the frame's top edge and the first window,
+                // and that band is this much taller than the reserved strip —
+                // so centring them on the strip alone puts every pill high by
+                // half of this. Measured on groot: reserved 64, first window at
+                // 78.
+                //
+                // Same coupling as border.thickness against gaps_out below, and
+                // the same caveat: change it in hyprland.lua and change it here.
+                property int gap: 14
+
                 // Tray items that publish no Activate method, mapped to what
                 // left-clicking them should do instead.
                 //

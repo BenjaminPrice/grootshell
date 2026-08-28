@@ -83,13 +83,25 @@ ShellRoot {
             // the whole shell down.
             property int barZone: GameMode.enabled ? 0 : Config.bar.height + Config.border.thickness
 
-            // Where anything hanging from the top of the screen starts.
+            // How tall the bar's SURFACE is, as opposed to how much it reserves.
             //
-            // A little below the reserved strip rather than flush with it. The
-            // bar is a row of floating pills now, not a solid band, so a panel
-            // pinned exactly at the bottom of the strip would touch the pills —
-            // and the whole point of a pill is that it has air around it.
-            readonly property int topDock: GameMode.enabled ? 0 : scope.barZone + Appearance.spacing.sm
+            // The two are no longer the same. A tiled window does not begin at
+            // the bottom of the reserved strip — the compositor's gaps_out and
+            // its window border push it down another Config.bar.gap — so the
+            // band of wallpaper a pill actually floats in is that much taller
+            // than the strip. Centring pills on the strip alone put every one of
+            // them high by half of it: about 7px of air above and 21 below.
+            //
+            // Making the surface cover the whole band, and reserving only part
+            // of it, is what lets the pills sit where they look right without a
+            // magic offset — and without being clipped by a surface that ends
+            // before they do.
+            readonly property int barSurface: GameMode.enabled ? 0 : scope.barZone + Config.bar.gap
+
+            // Where anything hanging from the top of the screen starts: level
+            // with the top of a tiled window, so a side panel and the windows
+            // beside it share a line.
+            readonly property int topDock: scope.barSurface
 
             Behavior on barZone {
                 enabled: Appearance.anim.enabled
@@ -116,13 +128,16 @@ ShellRoot {
                     right: true
                 }
 
-                implicitHeight: scope.barZone
-                visible: scope.barZone > 0
+                implicitHeight: scope.barSurface
+                visible: scope.barSurface > 0
 
-                // Auto derives the exclusive zone from the anchored size, which
-                // is exactly the reservation we want and keeps following the
-                // height as it animates.
-                exclusionMode: ExclusionMode.Auto
+                // The surface is taller than the reservation, so the zone has to
+                // be stated rather than derived. Auto takes it from the anchored
+                // size, which was right while the two were the same number and
+                // would now reserve the pills' breathing room as well — pushing
+                // every window down by a gap that already exists.
+                exclusionMode: ExclusionMode.Normal
+                exclusiveZone: scope.barZone
 
                 WlrLayershell.layer: WlrLayer.Top
                 WlrLayershell.namespace: "grootshell-bar"
