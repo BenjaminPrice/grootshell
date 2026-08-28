@@ -56,6 +56,15 @@ import qs.modules.keybinds
 ShellRoot {
     id: root
 
+    // Touches the Theming singleton so it is actually constructed.
+    //
+    // QML creates singletons lazily, on first reference. Theming has no
+    // properties anyone reads — it only watches the wallpaper and shells out —
+    // so nothing referenced it, so it was never built, so the colours never
+    // regenerated. A service that exists purely for its side effects has to be
+    // named somewhere or it does not exist.
+    readonly property bool themingActive: Theming.running
+
     Variants {
         model: Quickshell.screens
 
@@ -400,6 +409,13 @@ ShellRoot {
         target: "keybinds"
         function toggle(): void {
             ShellState.toggle("keybinds");
+        }
+    }
+
+    IpcHandler {
+        target: "theme"
+        function regenerate(): void {
+            Theming.regenerate();
         }
     }
 

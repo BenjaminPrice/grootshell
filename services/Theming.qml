@@ -25,6 +25,13 @@ Singleton {
     // when the folder model reloads.
     property string lastGenerated: ""
 
+    // Forced regeneration, ignoring the dedupe — for the IPC handler, and for
+    // any case where the file on disk is wrong rather than merely stale.
+    function regenerate(): void {
+        root.lastGenerated = "";
+        root.generate(Wallpapers.current);
+    }
+
     function generate(path: string): void {
         if (!path || path === root.lastGenerated || generator.running)
             return;
