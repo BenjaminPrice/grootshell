@@ -57,7 +57,11 @@ Item {
     // the clock off should not also remove the only thing you can click to get
     // at the agenda — SUPER+S still opens it, and it still appears when it does.
     visible: root.shown && (Config.bar.showClock || root.open || root.progress > 0)
-    clip: true
+
+    // NOT clipped. The fillets live outside these bounds by definition — they
+    // fill the notch BESIDE the panel — so clipping here deletes them and leaves
+    // the hard 90° corner they exist to soften. The body clips itself instead.
+    clip: false
 
     // 0 = pill, 1 = panel. Not readonly: a Behavior animates writes, and a
     // read-only property is only ever re-evaluated.
@@ -336,6 +340,10 @@ Item {
 
         opacity: Math.max(0, root.progress * 2 - 1)
         visible: opacity > 0
+        // Clipped here rather than on the root, which has to stay unclipped for
+        // the fillets. This is the only thing that can overflow: a tab's layout
+        // is sized for the panel and the panel is still growing.
+        clip: true
 
         ColumnLayout {
             anchors.fill: parent
