@@ -61,9 +61,21 @@ PanelWindow {
     exclusionMode: ExclusionMode.Normal
     exclusiveZone: root.reserve ? root.depth : 0
 
-    // Bottom, so it is never above anything even by accident, and no keyboard
-    // focus — it has nothing to type into.
-    WlrLayershell.layer: WlrLayer.Bottom
+    // Overlay, and that is about ordering rather than stacking.
+    //
+    // The compositor walks the layers in order — background, bottom, top,
+    // overlay — positioning each surface inside the area left by the ones
+    // before it, and subtracting each zone as it goes. On Bottom this was
+    // applied BEFORE the bar, which lives on Top, so the bar was inset from the
+    // edge along with the windows. Layer-shell offers no way for the bar to
+    // reserve its own height while ignoring someone else's zone: exclusiveZone
+    // is one number, and -1 means "reserve nothing AND ignore everyone".
+    //
+    // Above the bar, the bar is placed before this exists and keeps the full
+    // width, while the window area — computed after every layer — still shrinks.
+    //
+    // Being on Overlay costs nothing: one transparent pixel that takes no input.
+    WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "grootshell-reservation"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
