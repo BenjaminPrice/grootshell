@@ -72,12 +72,24 @@ DockedPanel {
                 // dial plus its label and the line beneath.
                 w: 1190,
                 h: 310
+            },
+            wallpaper: {
+                // The biggest tab, because it is the only one whose content is
+                // photographs. A thumbnail below roughly 250px tells you the
+                // rough colour of an image and nothing about whether you want to
+                // look at it all day, which is the actual question being asked
+                // here. Three columns at that size plus two rows of them is what
+                // sets both numbers.
+                w: 940,
+                h: 470
             }
         })
 
     readonly property var size: sizes[ShellState.islandTab] ?? sizes.dashboard
 
-    readonly property var tabIds: ["dashboard", "media", "performance"]
+    // Wallpaper is appended rather than slotted in beside the dashboard, so the
+    // digits already in anyone's fingers keep pointing at the same tabs.
+    readonly property var tabIds: ["dashboard", "media", "performance", "wallpaper"]
 
     // Focus has to be taken after the panel is actually on screen. The extrusion
     // animates up from nothing, so on the frame `open` flips there is still
@@ -96,33 +108,37 @@ DockedPanel {
         ShellState.islandTab = root.tabIds[next];
     }
 
-    // The active tab gets first refusal on every key, and only what it declines
-    // becomes a tab switch. That ordering is what lets the agenda keep Left for
-    // "back to the list" while Left still moves between tabs everywhere else.
+    // Moving between tabs is Tab, Shift+Tab and the digits. The arrow keys
+    // belong entirely to whatever tab is open.
+    //
+    // Left and Right used to switch tabs, and that was never quite honest: they
+    // only did so when the open tab had no use for them, so the same key meant
+    // "next tab" on the dashboard and "next event" in the agenda's detail view,
+    // depending on where you happened to be. The wallpaper grid is what makes it
+    // untenable rather than merely inconsistent — a grid needs all four arrows,
+    // so a tab that claims them would be a room with no door.
+    //
+    // Reserving Tab in both directions and handling it BEFORE the open tab gets
+    // a look means no tab can trap the keyboard, whatever it decides to claim.
     function route(event): void {
+        if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+            root.cycleTab(event.modifiers & Qt.ShiftModifier ? -1 : 1);
+            event.accepted = true;
+            return;
+        }
+
         const tab = ShellState.islandTab;
-        const target = tab === "dashboard" ? dashboardTab : tab === "media" ? mediaTab : null;
+        const target = tab === "dashboard" ? dashboardTab : tab === "media" ? mediaTab : tab === "wallpaper" ? wallpaperTab : null;
 
         if (target && target.handleKey(event)) {
             event.accepted = true;
             return;
         }
 
-        if (event.key === Qt.Key_Left) {
-            root.cycleTab(-1);
-            event.accepted = true;
-            return;
-        }
-        if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) {
-            root.cycleTab(1);
-            event.accepted = true;
-            return;
-        }
-
-        // Direct access, because three tabs is few enough to address by number
-        // and arrowing across is a step nobody needs. Safe to claim here: the
-        // tabs get first refusal, and the only one that wants digits is the
-        // agenda's detail view, which takes them before this is reached.
+        // Direct access, because four tabs is few enough to address by number
+        // and tabbing across is a step nobody needs. Safe to claim after the
+        // open tab has declined: the only one that wants digits is the agenda's
+        // detail view, which takes them above.
         const digit = event.key - Qt.Key_1;
         if (digit >= 0 && digit < root.tabIds.length) {
             ShellState.islandTab = root.tabIds[digit];
@@ -187,6 +203,11 @@ DockedPanel {
                         id: "performance",
                         icon: "monitoring",
                         label: "Performance"
+                    },
+                    {
+                        id: "wallpaper",
+                        icon: "wallpaper",
+                        label: "Wallpaper"
                     }
                 ]
 
@@ -243,7 +264,7 @@ DockedPanel {
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            currentIndex: ["dashboard", "media", "performance"].indexOf(ShellState.islandTab)
+            currentIndex: Math.max(0, root.tabIds.indexOf(ShellState.islandTab))
 
             Dashboard {
                 id: dashboardTab
@@ -253,6 +274,14 @@ DockedPanel {
             }
             // No handleKey: a row of dials has nothing to operate.
             Performance {}
+            WallpaperTab {
+                id: wallpaperTab
+                // Only the visible tab should be loading photographs. A
+                // StackLayout keeps every page alive, so without this the grid
+                // would decode thumbnails the moment the island opened on any
+                // tab at all.
+                active: root.open && ShellState.islandTab === "wallpaper"
+            }
         }
     }
 }

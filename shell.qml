@@ -17,7 +17,6 @@ import qs.modules.launcher
 import qs.modules.notifications
 import qs.modules.osd
 import qs.modules.translate
-import qs.modules.wallpaper
 import qs.modules.network
 import qs.modules.clipboard
 import qs.modules.switcher
@@ -285,12 +284,6 @@ ShellRoot {
                         anchors.bottom: parent.bottom
                     }
 
-                    WallpaperSwitcher {
-                        id: wallpaperSwitcher
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.bottom: parent.bottom
-                    }
-
                     Switcher {
                         id: switcher
                         anchors.centerIn: parent
@@ -333,9 +326,6 @@ ShellRoot {
                     }
                     Region {
                         item: clipboardPanel.visible ? clipboardPanel : null
-                    }
-                    Region {
-                        item: wallpaperSwitcher.visible ? wallpaperSwitcher : null
                     }
                     Region {
                         item: switcher.visible ? switcher : null
@@ -429,10 +419,19 @@ ShellRoot {
         }
     }
 
+    // The picker is a tab in the island now, so `toggle` opens that rather than
+    // a panel of its own. The target name stays — it is what the SUPER+P bind
+    // and anything scripted against the shell already call, and renaming it
+    // would break those for no gain.
     IpcHandler {
         target: "wallpaper"
         function toggle(): void {
-            ShellState.toggle("wallpaper");
+            if (ShellState.island && ShellState.islandTab === "wallpaper") {
+                ShellState.close("island");
+                return;
+            }
+            ShellState.islandTab = "wallpaper";
+            ShellState.open("island");
         }
         function next(): void {
             Wallpapers.next();

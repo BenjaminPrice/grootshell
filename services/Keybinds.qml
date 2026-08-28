@@ -37,21 +37,21 @@ Singleton {
     readonly property var panelBinds: [
         {
             category: "Dashboard panel",
-            keys: ["Left"],
-            description: "Previous tab"
-        },
-        {
-            category: "Dashboard panel",
-            keys: ["Right", "Tab"],
+            keys: ["Tab"],
             description: "Next tab"
         },
         {
             category: "Dashboard panel",
-            // One cap rather than three keys: the modal renders extras as
+            keys: ["SHIFT + Tab"],
+            description: "Previous tab"
+        },
+        {
+            category: "Dashboard panel",
+            // One cap rather than four keys: the modal renders extras as
             // "or X", which reads as alternatives for the same action instead
             // of a range where each key means something different.
-            keys: ["1 – 3"],
-            description: "Jump to Dashboard, Media or Performance"
+            keys: ["1 – 4"],
+            description: "Jump to Dashboard, Media, Performance or Wallpaper"
         },
         {
             category: "Dashboard panel",
@@ -95,13 +95,18 @@ Singleton {
         },
         {
             category: "Wallpaper",
-            keys: ["Left", "Right"],
-            description: "Move through wallpapers"
+            keys: ["Arrows"],
+            description: "Move through the grid — applies after a short pause"
         },
         {
             category: "Wallpaper",
             keys: ["Enter", "Space"],
-            description: "Apply the selected wallpaper"
+            description: "Apply now, without waiting"
+        },
+        {
+            category: "Wallpaper",
+            keys: ["Home", "End"],
+            description: "First or last wallpaper"
         },
         {
             category: "Wallpaper",
