@@ -15,6 +15,12 @@ import Quickshell.Io
 // Read from /etc rather than the config dir because it describes the compositor,
 // not the shell — it is true for whoever is logged in, and it is not something a
 // user edits.
+//
+// Panel keys are the exception and are declared below. They are handled inside
+// QML, by whichever panel has focus, so Nix never sees them and they cannot come
+// from that file. They are still keys someone has to remember, which is the only
+// thing the modal is for — a cheatsheet that documents half the bindings is
+// worse than one that admits where they come from.
 
 Singleton {
     id: root
@@ -24,6 +30,86 @@ Singleton {
     property var binds: []
     readonly property bool available: binds.length > 0
 
+    // Handled by panels rather than by the compositor. Kept next to nothing that
+    // enforces them, which is a real weakness: change a key in Island.qml,
+    // Agenda.qml or Media.qml and this has to change with it. The alternative
+    // was leaving them undocumented, which is worse.
+    readonly property var panelBinds: [
+        {
+            category: "Dashboard panel",
+            keys: ["Left"],
+            description: "Previous tab"
+        },
+        {
+            category: "Dashboard panel",
+            keys: ["Right", "Tab"],
+            description: "Next tab"
+        },
+        {
+            category: "Dashboard panel",
+            // One cap rather than three keys: the modal renders extras as
+            // "or X", which reads as alternatives for the same action instead
+            // of a range where each key means something different.
+            keys: ["1 – 3"],
+            description: "Jump to Dashboard, Media or Performance"
+        },
+        {
+            category: "Dashboard panel",
+            keys: ["Escape"],
+            description: "Close"
+        },
+        {
+            category: "Agenda",
+            keys: ["Up", "Down"],
+            description: "Move through the agenda"
+        },
+        {
+            category: "Agenda",
+            keys: ["Enter", "Space"],
+            description: "Open the entry, or join its first call"
+        },
+        {
+            category: "Agenda",
+            keys: ["1 – 9"],
+            description: "Join a specific call, when an entry has several"
+        },
+        {
+            category: "Agenda",
+            keys: ["Backspace"],
+            description: "Back to the list"
+        },
+        {
+            category: "Media",
+            keys: ["Space", "Enter"],
+            description: "Play or pause, or start the default player"
+        },
+        {
+            category: "Media",
+            keys: ["N"],
+            description: "Next track"
+        },
+        {
+            category: "Media",
+            keys: ["P"],
+            description: "Previous track"
+        },
+        {
+            category: "Wallpaper",
+            keys: ["Left", "Right"],
+            description: "Move through wallpapers"
+        },
+        {
+            category: "Wallpaper",
+            keys: ["Enter", "Space"],
+            description: "Apply the selected wallpaper"
+        },
+        {
+            category: "Wallpaper",
+            keys: ["M"],
+            description: "Cycle the light/dark override"
+        }
+    ]
+
     // Grouped for display, preserving the order categories first appear in the
     // source rather than sorting them alphabetically — the Nix list is already
     // ordered by importance, with the escape hatches first.
@@ -31,7 +117,9 @@ Singleton {
         const order = [];
         const byCategory = {};
 
-        for (const bind of root.binds) {
+        // Compositor binds first: those are the ones that work when the shell
+        // is dead, and the ones worth finding at the top of the sheet.
+        for (const bind of root.binds.concat(root.panelBinds)) {
             const category = bind.category ?? "Other";
             if (!byCategory[category]) {
                 byCategory[category] = [];

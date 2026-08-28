@@ -26,7 +26,7 @@ Item {
             if (Players.hasActive)
                 Players.playPause();
             else
-                root.launchPlayer();
+                root.launchDefault();
             return true;
         case Qt.Key_N:
             Players.next();
@@ -39,12 +39,12 @@ Item {
     }
 
     // Prefers the .desktop entry so the app starts with whatever environment
-    // its packager set, and falls back to the bare command for a player that
-    // ships no entry. Through Apps.launch either way, so it survives the shell
-    // restarting — the dev loop does that constantly and killing the music with
-    // it would be its own small tragedy.
-    function launchPlayer(): void {
-        const names = Config.services.mediaPlayerNames ?? [];
+    // its packager intended, and falls back to the bare command for anything
+    // with no entry to find. Through Apps.launch either way, so it survives the
+    // shell restarting — the dev loop does that constantly and killing the music
+    // with it would be its own small tragedy.
+    function launchApp(app): void {
+        const names = app?.names ?? [];
         for (let i = 0; i < names.length; i++) {
             let entry = null;
             try {
@@ -55,7 +55,16 @@ Item {
                 return;
             }
         }
-        Apps.launch([Config.services.mediaPlayerCommand]);
+        if (app?.command)
+            Apps.launch(app.command);
+    }
+
+    // The default is the first configured app — what Space reaches, and what the
+    // open button falls back to when nothing is playing to raise.
+    function launchDefault(): void {
+        const apps = Config.services.mediaApps ?? [];
+        if (apps.length > 0)
+            root.launchApp(apps[0]);
     }
 
     // --- Nothing playing ----------------------------------------------------
@@ -77,40 +86,61 @@ Item {
             color: Theme.textMuted
         }
 
-        // The obvious next move when there is nothing playing, rather than
-        // something to go and find in the launcher.
-        Rectangle {
+        // One button per configured app, because there is more than one thing
+        // "play something" could mean now. The first is styled as the default;
+        // the rest are outlined, so the row reads as a primary choice with
+        // alternatives rather than as a set of equals.
+        RowLayout {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: Appearance.spacing.sm
-            implicitWidth: launchRow.implicitWidth + Appearance.padding.lg * 2
-            implicitHeight: launchRow.implicitHeight + Appearance.padding.sm * 2
-            radius: Appearance.rounding.full
-            color: launchHover.containsMouse ? Theme.accent : Theme.accentContainer
+            spacing: Appearance.spacing.sm
 
-            RowLayout {
-                id: launchRow
-                anchors.centerIn: parent
-                spacing: Appearance.spacing.xs
+            Repeater {
+                model: Config.services.mediaApps ?? []
 
-                Icon {
-                    text: "play_circle"
-                    color: launchHover.containsMouse ? Theme.onAccent : Theme.onAccentContainer
-                    size: Appearance.font.size.md
+                delegate: Rectangle {
+                    id: launchButton
+
+                    required property var modelData
+                    required property int index
+
+                    readonly property bool isDefault: index === 0
+
+                    implicitWidth: launchRow.implicitWidth + Appearance.padding.lg * 2
+                    implicitHeight: launchRow.implicitHeight + Appearance.padding.sm * 2
+                    radius: Appearance.rounding.full
+                    color: launchButton.isDefault ? (launchHover.containsMouse ? Theme.accent : Theme.accentContainer) : (launchHover.containsMouse ? Theme.surfaceContainerHigh : "transparent")
+                    border.width: launchButton.isDefault ? 0 : 1
+                    border.color: Theme.outlineVariant
+
+                    readonly property color ink: launchButton.isDefault ? (launchHover.containsMouse ? Theme.onAccent : Theme.onAccentContainer) : Theme.textSecondary
+
+                    RowLayout {
+                        id: launchRow
+                        anchors.centerIn: parent
+                        spacing: Appearance.spacing.xs
+
+                        Icon {
+                            text: launchButton.modelData.icon ?? "play_circle"
+                            color: launchButton.ink
+                            size: Appearance.font.size.md
+                        }
+
+                        StyledText {
+                            text: launchButton.modelData.label ?? ""
+                            color: launchButton.ink
+                            font.pixelSize: Appearance.font.size.xs
+                        }
+                    }
+
+                    MouseArea {
+                        id: launchHover
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.launchApp(launchButton.modelData)
+                    }
                 }
-
-                StyledText {
-                    text: "Open YouTube Music"
-                    color: launchHover.containsMouse ? Theme.onAccent : Theme.onAccentContainer
-                    font.pixelSize: Appearance.font.size.xs
-                }
-            }
-
-            MouseArea {
-                id: launchHover
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.launchPlayer()
             }
         }
     }
@@ -168,9 +198,15 @@ Item {
                 }
 
                 // Raises the player's own window. Small and unlabelled here,
-                // unlike the button in the empty state: with something already
+                // unlike the buttons in the empty state: with something already
                 // playing this is a way back to the app, not the main thing you
                 // came to the tab to do.
+                //
+                // Asks MPRIS to raise the app that is actually playing, rather
+                // than launching whichever one the shell would have picked —
+                // with two media apps configured those are no longer the same
+                // thing. Falls back to launching only if the player says it
+                // cannot be raised.
                 Icon {
                     text: "open_in_new"
                     color: openHover.containsMouse ? Theme.accent : Theme.textMuted
@@ -182,7 +218,10 @@ Item {
                         anchors.margins: -4
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: root.launchPlayer()
+                        onClicked: {
+                            if (!Players.raise())
+                                root.launchDefault();
+                        }
                     }
                 }
             }

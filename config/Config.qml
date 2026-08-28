@@ -148,12 +148,30 @@ Singleton {
                 // YouTube Music desktop app was renamed — th-ch/youtube-music is
                 // now pear-devs/pear-desktop — and which string the app reports
                 // is its own business, not something to pin a rebuild on.
-                property var preferredPlayers: ["youtube music", "pear", "jellyfin", "tsukimi", "delfin"]
+                property var preferredPlayers: ["youtube music", "pear", "tsukimi"]
 
-                // What the media tab's launch button starts. A desktop entry is
-                // looked up first so the app gets the environment its packager
-                // intended; this is the fallback when there is no entry to find.
-                property string mediaPlayerCommand: "pear-desktop"
+                // What the media tab offers to start when nothing is playing,
+                // in order — the first is the default and the one a keypress
+                // reaches.
+                //
+                // `names` are tried against the desktop entry database first, so
+                // the app starts with the environment its packager intended;
+                // `command` is the fallback for anything with no entry to find.
+                property var mediaApps: [
+                    {
+                        label: "YouTube Music",
+                        icon: "music_note",
+                        names: ["pear-desktop", "YouTube Music"],
+                        command: ["pear-desktop"]
+                    },
+                    {
+                        label: "Tsukimi",
+                        icon: "movie",
+                        names: ["tsukimi", "moe.tsuna.tsukimi"],
+                        // A Flatpak, so there is no bare binary to fall back to.
+                        command: ["flatpak", "run", "moe.tsuna.tsukimi"]
+                    }
+                ]
 
                 // Calendar name -> colour, overriding the built-in palette.
                 // Names are whatever the secret labels a feed, or the feed's own

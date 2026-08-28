@@ -54,6 +54,18 @@ Singleton {
     readonly property real position: active?.position ?? 0
     readonly property real progress: length > 0 ? Math.min(1, position / length) : 0
 
+    // Bring the playing app's own window forward. MPRIS exposes this directly,
+    // which beats guessing which desktop entry a bus name belongs to — and it
+    // raises the app that is ACTUALLY playing rather than whichever one the
+    // shell would have launched.
+    function raise(): bool {
+        if (active?.canRaise) {
+            active.raise();
+            return true;
+        }
+        return false;
+    }
+
     function playPause(): void {
         if (active?.canTogglePlaying)
             active.togglePlaying();
