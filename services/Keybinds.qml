@@ -94,6 +94,31 @@ Singleton {
             description: "Previous track"
         },
         {
+            category: "Desktop switcher",
+            keys: ["SUPER + Tab"],
+            description: "Next desktop — hold SUPER and keep tapping"
+        },
+        {
+            category: "Desktop switcher",
+            keys: ["Arrows"],
+            description: "Move the selection"
+        },
+        {
+            category: "Desktop switcher",
+            keys: ["Enter", "Space"],
+            description: "Go there now, without waiting"
+        },
+        {
+            category: "Desktop switcher",
+            keys: ["1 – 5"],
+            description: "Jump straight to a desktop"
+        },
+        {
+            category: "Desktop switcher",
+            keys: ["Escape"],
+            description: "Stay where you are"
+        },
+        {
             category: "Wallpaper",
             keys: ["Arrows"],
             description: "Move through the grid — applies after a short pause"

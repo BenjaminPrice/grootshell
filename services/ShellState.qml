@@ -23,15 +23,27 @@ Singleton {
     property bool clipboard: false
     property bool notifications: false
     property bool network: false
+    // The window switcher (every window, one grid) and the desktop switcher
+    // (every workspace, drawn to scale). Different questions, so two panels.
     property bool switcher: false
+    property bool desktops: false
     property bool keybinds: false
 
     property string islandTab: Config.island.defaultTab
 
+    // "Move the desktop switcher's selection", emitted by the SUPER+Tab IPC
+    // handler and acted on by the panel.
+    //
+    // A signal and not a property, because the interesting case is pressing the
+    // same key twice: writing 1 to a property that already holds 1 emits no
+    // change, so the second tap of Tab would do nothing. A signal has no such
+    // notion of being already-in-that-state.
+    signal desktopStep(delta: int)
+
     // Only one of these can be up at a time. They all want keyboard focus and
     // they all sit in roughly the same place; two at once is visual soup and an
     // input fight. Opening one closes the rest.
-    readonly property var exclusive: ["launcher", "translate", "island", "clipboard", "notifications", "network", "switcher", "keybinds"]
+    readonly property var exclusive: ["launcher", "translate", "island", "clipboard", "notifications", "network", "switcher", "desktops", "keybinds"]
 
     readonly property bool anyOpen: exclusive.some(n => root[n])
 

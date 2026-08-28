@@ -289,6 +289,11 @@ ShellRoot {
                         anchors.centerIn: parent
                     }
 
+                    DesktopSwitcher {
+                        id: desktopSwitcher
+                        anchors.centerIn: parent
+                    }
+
                     KeybindsModal {
                         id: keybindsModal
                         anchors.centerIn: parent
@@ -329,6 +334,9 @@ ShellRoot {
                     }
                     Region {
                         item: switcher.visible ? switcher : null
+                    }
+                    Region {
+                        item: desktopSwitcher.visible ? desktopSwitcher : null
                     }
                     Region {
                         item: keybindsModal.visible ? keybindsModal : null
@@ -454,6 +462,32 @@ ShellRoot {
         target: "switcher"
         function toggle(): void {
             ShellState.toggle("switcher");
+        }
+    }
+
+    // The desktop switcher. `next` is what SUPER+Tab calls: it opens the panel
+    // if it is closed and advances the selection either way, so one bind does
+    // both jobs and holding SUPER while tapping Tab walks along the desktops.
+    //
+    // Advancing lives here rather than in the panel's own key handler because
+    // Hyprland processes its keybinds BEFORE forwarding to clients — SUPER+Tab
+    // fires even while the panel holds exclusive keyboard focus, so a Tab
+    // handler in the panel would move the selection a second time on every
+    // press.
+    IpcHandler {
+        target: "desktops"
+        function toggle(): void {
+            ShellState.toggle("desktops");
+        }
+        function next(): void {
+            if (!ShellState.desktops)
+                ShellState.open("desktops");
+            ShellState.desktopStep(1);
+        }
+        function previous(): void {
+            if (!ShellState.desktops)
+                ShellState.open("desktops");
+            ShellState.desktopStep(-1);
         }
     }
 
