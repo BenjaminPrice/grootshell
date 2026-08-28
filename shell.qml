@@ -83,6 +83,14 @@ ShellRoot {
             // the whole shell down.
             property int barZone: GameMode.enabled ? 0 : Config.bar.height + Config.border.thickness
 
+            // Where anything hanging from the top of the screen starts.
+            //
+            // A little below the reserved strip rather than flush with it. The
+            // bar is a row of floating pills now, not a solid band, so a panel
+            // pinned exactly at the bottom of the strip would touch the pills —
+            // and the whole point of a pill is that it has air around it.
+            readonly property int topDock: GameMode.enabled ? 0 : scope.barZone + Appearance.spacing.sm
+
             Behavior on barZone {
                 enabled: Appearance.anim.enabled
                 NumberAnimation {
@@ -226,7 +234,7 @@ ShellRoot {
                         id: island
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.top: parent.top
-                        anchors.topMargin: scope.barZone
+                        anchors.topMargin: scope.topDock
                     }
 
                     Launcher {
@@ -250,7 +258,7 @@ ShellRoot {
                         id: notificationCentre
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.topMargin: scope.barZone
+                        anchors.topMargin: scope.topDock
                     }
 
                     // Flush against the bar, deliberately. Both it and a
@@ -262,7 +270,7 @@ ShellRoot {
                         id: toasts
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.topMargin: scope.barZone
+                        anchors.topMargin: scope.topDock
                     }
 
                     Osd {
@@ -275,7 +283,7 @@ ShellRoot {
                         id: networkPopout
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.topMargin: scope.barZone
+                        anchors.topMargin: scope.topDock
                     }
 
                     ClipboardPanel {

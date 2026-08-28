@@ -22,17 +22,17 @@ DockedPanel {
 
     depth: Math.round(440 * Appearance.font.scale)
 
-    // Flush against the bar above, same as the toasts.
-    abutsStart: true
+    // Filleted at both ends, same as the toasts — it grows out of the right
+    // border and nothing else. See the note there for why that changed.
 
-    // Full height below the bar. Computed from the same values shell.qml uses to
-    // place it, rather than anchoring top and bottom — a DockedPanel sizes
-    // itself from span and depth, so anchoring both edges would fight it.
-    // Half the usable height, hung from the bar rather than filling the edge.
-    // Top-aligned because it grows downward as notifications arrive, and a
-    // centred panel would push its own contents around every time one did.
-    readonly property int barZone: Config.bar.height + Config.border.thickness
-    span: Math.round(((parent?.height ?? 1080) - barZone - Config.border.thickness) * 0.5)
+    // Half the usable height, hung below the pills rather than filling the edge.
+    // Computed from the same values shell.qml uses to place it, rather than
+    // anchoring top and bottom — a DockedPanel sizes itself from span and depth,
+    // so anchoring both edges would fight it. Top-aligned because it grows
+    // downward as notifications arrive, and a centred panel would push its own
+    // contents around every time one did.
+    readonly property int topDock: Config.bar.height + Config.border.thickness + Appearance.spacing.sm
+    span: Math.round(((parent?.height ?? 1080) - topDock - Config.border.thickness) * 0.5)
 
     ColumnLayout {
         anchors.fill: parent

@@ -26,10 +26,14 @@ DockedPanel {
 
     depth: Math.round(420 * Appearance.font.scale)
 
-    // The top edge is flush with the bar, which is the same colour. Without
-    // this the panel keeps a convex corner where the two meet, which reads as a
-    // rounded box sitting under the bar rather than as one continuous surface.
-    abutsStart: true
+    // Filleted at BOTH ends, so it reads as bulging out of the right border and
+    // nothing else.
+    //
+    // This used to square off its top edge and move that fillet, because the top
+    // was flush against a solid frame-coloured bar and a rounded corner there
+    // would have left a notch of wallpaper in the join. The bar is a row of
+    // floating pills now — there is nothing along the top to be flush with — so
+    // squaring that corner would leave a right angle hanging in mid air.
 
     // Along the edge: as tall as the stack, so the frame bulges to exactly the
     // notifications present rather than to a fixed box with gaps in it.

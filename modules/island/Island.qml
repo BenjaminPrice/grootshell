@@ -22,16 +22,25 @@ import qs.components
 // fillWidth tab strip would have every button slide outward on every switch —
 // including the one you just clicked, out from under the pointer.
 
-// Docked to the bar rather than to the screen edge. frameThickness is 0 because
-// there is no border band to overlap here — the bar is already frame-coloured
-// and already occupies the top, so the island merges with the BAR's lower edge.
-// shell.qml anchors it exactly there.
-DockedPanel {
+// A card that drops from the clock pill, not an extrusion of the frame.
+//
+// It used to be a DockedPanel with frameThickness 0, merging into the underside
+// of a bar that was painted frame-coloured all the way across. There is no such
+// bar any more — the top of the screen is three floating pills over the
+// wallpaper — so there is nothing to merge WITH, and an extrusion with no band
+// to grow out of is just a rectangle that grows.
+//
+// So it became the same floating card the other modals are: it slides down from
+// the clock pill and fades in, with the pill filling with accent while it is
+// open so the two read as handle and drawer. Frame-coloured to match the pills
+// rather than surface-coloured, which keeps the whole top of the screen one
+// family of objects.
+Panel {
     id: root
 
     edge: "top"
     open: ShellState.island
-    frameThickness: 0
+    surface: Theme.frame
 
     // Keyboard sink for the whole island.
     //
@@ -148,14 +157,14 @@ DockedPanel {
         }
     }
 
-    // Animated here rather than in DockedPanel: the panel already animates its
-    // own depth on open and close, and a Behavior on the resulting size would
-    // animate an animating value — which reads as lag, not as easing. This is a
-    // separate motion (switching tabs) and gets its own.
-    span: Math.round(size.w * Appearance.font.scale)
-    depth: Math.round(size.h * Appearance.font.scale)
+    // Resizing between tabs is its own motion, separate from opening. Panel
+    // animates position and opacity on open; this animates the box, so switching
+    // from the dashboard to the performance dials grows the card rather than
+    // cutting to a new size.
+    implicitWidth: Math.round(size.w * Appearance.font.scale)
+    implicitHeight: Math.round(size.h * Appearance.font.scale)
 
-    Behavior on span {
+    Behavior on implicitWidth {
         enabled: Appearance.anim.enabled
         NumberAnimation {
             duration: Appearance.anim.normal
@@ -164,7 +173,7 @@ DockedPanel {
         }
     }
 
-    Behavior on depth {
+    Behavior on implicitHeight {
         enabled: Appearance.anim.enabled
         NumberAnimation {
             duration: Appearance.anim.normal

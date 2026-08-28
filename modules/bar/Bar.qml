@@ -8,15 +8,17 @@ import qs.config
 import qs.services
 import qs.components
 
-// The top bar.
+// The top bar, as a row of floating pills rather than a band.
 //
-// Inset by the border thickness so it sits *inside* the frame rather than on top
-// of it — the bar is the top edge of the content area, not a separate strip
-// above it.
+// It used to paint Theme.frame edge to edge across its whole height, which put
+// 64px of solid chrome along the top of the screen and made the frame look four
+// times thicker there than on the other three sides. Now it paints nothing: the
+// frame's top band stays the same 10px as everywhere else, and the bar is three
+// capsules floating in front of the wallpaper below it.
 //
-// Fills the bar window (see shell.qml), which owns the height and the exclusive
-// zone that keeps windows from opening underneath. This draws; the window
-// reserves.
+// The window underneath still reserves the full height (see shell.qml), so
+// windows tile below the pills rather than sliding under them. The strip is
+// transparent, not absent — what changed is that it is no longer painted.
 //
 // Three independently anchored groups, NOT one RowLayout with spacers. That
 // matters: spacers centre a widget in the space left over after its neighbours,
@@ -34,14 +36,8 @@ Item {
 
     clip: true
 
-    // Frame-coloured, so the bar and the border read as one continuous band
-    // rather than as a strip sitting on top of one. Extends the full width and
-    // height of the window, which includes the frame's top band above the
-    // content strip.
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.frame
-    }
+    // Deliberately no background. See above — the frame's own top band is drawn
+    // by modules/border and is all the chrome the top of the screen gets.
 
     // The content strip, below the frame's top edge.
     Item {
@@ -50,8 +46,11 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.leftMargin: root.inset + Appearance.padding.lg
-        anchors.rightMargin: root.inset + Appearance.padding.lg
+        // Clear of the frame's side bands by a little more than their own width,
+        // so the pills read as floating in front of the frame rather than as
+        // being wedged against it.
+        anchors.leftMargin: root.inset + Appearance.spacing.sm
+        anchors.rightMargin: root.inset + Appearance.spacing.sm
         anchors.topMargin: root.inset
         anchors.bottom: parent.bottom
 
@@ -61,33 +60,50 @@ Item {
 
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Appearance.spacing.md
+            spacing: Appearance.spacing.sm
 
+            // Its own pill, drawn by the widget itself: the track it already
+            // needed as a container for the workspace slots IS the capsule, and
+            // wrapping it in another one would be a pill inside a pill.
             Workspaces {}
 
-            StyledText {
-                // Hard-capped rather than fillWidth: this must never grow into
-                // the centre group, which is anchored independently and would
-                // simply be overlapped.
-                Layout.maximumWidth: Math.max(0, (strip.width - centre.width) / 2 - Appearance.spacing.xl)
+            // The focused window's title, in a pill of its own.
+            //
+            // Separate rather than tucked in beside the workspaces, because it
+            // is the one thing up here whose width is unbounded — sharing a
+            // capsule would make that capsule breathe on every window change.
+            // It disappears entirely when there is no title, so an empty
+            // workspace does not leave a stub of chrome behind.
+            Pill {
+                id: titlePill
 
-                // Cross-checked against the focused workspace rather than read
-                // straight off activeToplevel. Switching to an empty workspace
-                // left the previous window's title sitting in the bar: Hyprland
-                // clears its own active window (hyprctl activewindow returns an
-                // empty title there), but the toplevel this side keeps pointing
-                // at the last window that had focus. Asking "is it on the
-                // workspace I am actually looking at" is true regardless of
-                // which of the two is stale.
-                text: {
+                readonly property string title: {
                     const t = Hyprland.activeToplevel;
                     if (!t)
                         return "";
+                    // Cross-checked against the focused workspace rather than
+                    // read straight off activeToplevel. Switching to an empty
+                    // workspace left the previous window's title sitting in the
+                    // bar: Hyprland clears its own active window, but the
+                    // toplevel this side keeps pointing at the last window that
+                    // had focus. Asking "is it on the workspace I am actually
+                    // looking at" is true regardless of which of the two is
+                    // stale.
                     const ws = t.workspace?.id ?? -1;
                     return ws === (Hyprland.focusedWorkspace?.id ?? -1) ? (t.title ?? "") : "";
                 }
-                color: Theme.textSecondary
-                elide: Text.ElideRight
+
+                visible: titlePill.title !== ""
+
+                StyledText {
+                    // Hard-capped rather than fillWidth: this must never grow
+                    // into the centre group, which is anchored independently and
+                    // would simply be overlapped.
+                    Layout.maximumWidth: Math.max(0, (strip.width - centre.width) / 2 - Appearance.spacing.xl * 2)
+                    text: titlePill.title
+                    color: Theme.textSecondary
+                    elide: Text.ElideRight
+                }
             }
         }
 
@@ -99,13 +115,14 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Appearance.spacing.sm
 
-            Rectangle {
+            Pill {
                 id: clock
+
                 visible: Config.bar.showClock
-                implicitWidth: clockText.implicitWidth + Appearance.padding.xl * 2
-                implicitHeight: Config.bar.height - Appearance.padding.sm * 2
-                radius: Appearance.rounding.full
-                color: ShellState.island ? Theme.accentContainer : clockHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
+                hpad: Appearance.padding.xl
+                // Fills with the accent while the island is down, so the pill
+                // reads as the handle the drawer is hanging from.
+                color: ShellState.island ? Theme.accentContainer : clockHover.containsMouse ? Theme.surfaceContainerHigh : Theme.frame
 
                 Behavior on color {
                     enabled: Appearance.anim.enabled
@@ -115,8 +132,6 @@ Item {
                 }
 
                 StyledText {
-                    id: clockText
-                    anchors.centerIn: parent
                     text: Time.format(Config.bar.clockFormat)
                     color: ShellState.island ? Theme.onAccentContainer : Theme.text
                     font.pixelSize: Appearance.font.size.md
@@ -133,7 +148,11 @@ Item {
         }
 
         // --- Right ----------------------------------------------------------
-        RowLayout {
+        //
+        // One pill for the tray and the status glyphs together. They are all
+        // "the state of the machine" and splitting them into two capsules would
+        // draw a distinction that is not there.
+        Pill {
             id: right
 
             anchors.right: parent.right

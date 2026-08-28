@@ -111,13 +111,21 @@ Item {
             Hypr.focusWorkspace(next);
     }
 
+    // The track IS the pill.
+    //
+    // Not wrapped in components/Pill.qml, though it is painted to match one: the
+    // track already exists to contain the workspace slots, and putting it inside
+    // a Pill would draw one capsule immediately inside another. Same colour and
+    // same hairline, so it sits in the row as a peer of the others.
     Rectangle {
         id: track
 
-        implicitWidth: row.implicitWidth + Appearance.padding.sm * 2
+        implicitWidth: row.implicitWidth + Appearance.padding.md * 2
         implicitHeight: row.implicitHeight + Appearance.padding.xs * 2
         radius: Appearance.rounding.full
-        color: Theme.surfaceContainer
+        color: Theme.frame
+        border.width: 1
+        border.color: Theme.outlineVariant
 
         RowLayout {
             id: row
