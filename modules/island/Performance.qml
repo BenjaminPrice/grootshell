@@ -83,6 +83,15 @@ Item {
                 label: "Memory"
                 value: Sys.memory
                 detail: `${Math.round(Sys.memory)}%`
+                // A percentage tells you how close to trouble you are; the
+                // absolute figure tells you whether another browser is going to
+                // be a problem. They answer different questions, so both.
+                //
+                // The total reads about 31 rather than the 32 in the machine —
+                // MemTotal excludes what the kernel and firmware reserve. That
+                // is the same number `free -h` prints, which is what anyone
+                // would check it against.
+                sub: Sys.memoryTotalKb > 0 ? `${Sys.gib(Sys.memoryUsedKb).toFixed(1)}/${Math.round(Sys.gib(Sys.memoryTotalKb))} GB` : ""
                 fill: root.loadColour(Sys.memory)
             }
 

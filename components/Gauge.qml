@@ -18,6 +18,15 @@ Item {
     property real value: 0        // 0-100
     property string label
     property string detail
+
+    // An optional second line under `detail`, INSIDE the dial.
+    //
+    // Inside rather than under the label, because a gauge in a filling grid
+    // sizes its dial from whatever height is left after the label — so giving
+    // one gauge an extra line below would shrink only that dial and leave it
+    // visibly smaller than the five beside it. In here the outer geometry is
+    // untouched and the ring stays the same size as its neighbours.
+    property string sub
     property color fill: Theme.accent
     property int thickness: Math.max(6, Math.round(9 * Appearance.font.scale))
 
@@ -98,12 +107,28 @@ Item {
             }
         }
 
-        StyledText {
+        // With no `sub` this is a column of one, centred — identical to the
+        // single label it replaced.
+        Column {
             anchors.centerIn: parent
-            text: root.detail
-            color: Theme.text
-            font.pixelSize: Appearance.font.size.md
-            mono: true
+            spacing: 0
+
+            StyledText {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: root.detail
+                color: Theme.text
+                font.pixelSize: Appearance.font.size.md
+                mono: true
+            }
+
+            StyledText {
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: root.sub !== ""
+                text: root.sub
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
+                mono: true
+            }
         }
     }
 

@@ -51,15 +51,10 @@ Item {
                 elide: Text.ElideRight
             }
 
-            StyledText {
-                text: `up ${Sys.formatUptime()}`
-                color: Theme.textMuted
-                font.pixelSize: Appearance.font.size.xs
-                // Uptime comes from the metrics poll, which only runs while the
-                // performance tab is open — so this shows the last known value
-                // rather than nothing, and simply does not tick here.
-                visible: Sys.uptime > 0
-            }
+            // No uptime. The performance tab already carries it, and here it was
+            // doubly awkward: the metrics poll only runs while THAT tab is open,
+            // so this showed a stale value or nothing at all depending on where
+            // you had been.
         }
 
         RowLayout {

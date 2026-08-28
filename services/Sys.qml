@@ -28,6 +28,8 @@ Singleton {
     // --- Values -------------------------------------------------------------
     property real cpu: 0        // percent, 0-100
     property real memory: 0     // percent used
+    property real memoryUsedKb: 0
+    property real memoryTotalKb: 0
     property real swap: 0       // percent used
     property real temperature: 0 // CPU package, degrees C, 0 when unavailable
     property real gpu: 0        // percent busy
@@ -86,7 +88,10 @@ Singleton {
             cpu=0
             [ "$dt" -gt 0 ] && cpu=$(( (dt-di)*100/dt ))
 
-            mem=$(awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} END{ if (t>0) printf "%d", (t-a)*100/t; else print 0 }' /proc/meminfo)
+            # Percentage AND the raw kB behind it, from one pass. The dial wants
+            # the fraction; the line under it wants the actual numbers, and
+            # deriving one from the other in QML would mean rounding twice.
+            read mem memused memtotal <<< "$(awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} END{ if (t>0) printf "%d %d %d", (t-a)*100/t, t-a, t; else print "0 0 0" }' /proc/meminfo)"
             swap=$(awk '/^SwapTotal:/{t=$2} /^SwapFree:/{f=$2} END{ if (t>0) printf "%d", (t-f)*100/t; else print 0 }' /proc/meminfo)
             up=$(awk '{printf "%d", $1}' /proc/uptime)
 
@@ -125,13 +130,15 @@ Singleton {
               break
             done
 
-            printf '%s %s %s %s %s %s %s\\n' "$cpu" "$mem" "$swap" "$temp" "$gpu" "$gputemp" "$up"
+            printf '%s %s %s %s %s %s %s %s %s\\n' "$cpu" "$mem" "$swap" "$temp" "$gpu" "$gputemp" "$up" "$memused" "$memtotal"
         `]
 
         stdout: StdioCollector {
             onStreamFinished: {
+                // The two memory sizes are appended rather than slotted in
+                // beside the percentage, so every existing index stays put.
                 const parts = text.trim().split(/\s+/).map(Number);
-                if (parts.length < 7 || parts.some(isNaN))
+                if (parts.length < 9 || parts.some(isNaN))
                     return;
                 root.cpu = parts[0];
                 root.memory = parts[1];
@@ -140,8 +147,22 @@ Singleton {
                 root.gpu = parts[4];
                 root.gpuTemperature = parts[5];
                 root.uptime = parts[6];
+                root.memoryUsedKb = parts[7];
+                root.memoryTotalKb = parts[8];
             }
         }
+    }
+
+    // kB as reported by /proc/meminfo, which is kibibytes, so this divides by
+    // 1024s. That is the same convention `free -h` uses, and cross-checking a
+    // readout against the obvious command should not produce two answers.
+    //
+    // It does mean the total reads lower than the RAM you bought: MemTotal
+    // excludes what the kernel and firmware reserve, so 32GB of sticks reports
+    // about 31.1 here. Reporting the sticks would mean dmidecode and root, to
+    // print a number that is not the one that runs out.
+    function gib(kb: real): real {
+        return kb / 1048576;
     }
 
     function formatUptime(): string {
