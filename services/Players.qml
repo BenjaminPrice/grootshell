@@ -5,8 +5,8 @@ import Quickshell
 import Quickshell.Services.Mpris
 import qs.config
 
-// MPRIS, with a preference for whatever Config.services.defaultPlayer names —
-// YouTube Music by default rather than Spotify.
+// MPRIS, with a preference for whatever Config.services.preferredPlayers names —
+// the YouTube Music app by default rather than a browser tab.
 //
 // "Active player" is a judgement call when several are running. Playing beats
 // paused, then the configured favourite, then whatever came first. Without the
@@ -25,10 +25,19 @@ Singleton {
         const playing = all.filter(p => p.playbackState === MprisPlaybackState.Playing);
         const pool = playing.length > 0 ? playing : all;
 
-        const wanted = Config.services.defaultPlayer.toLowerCase();
-        const preferred = pool.find(p => (p.identity ?? "").toLowerCase().includes(wanted));
+        // First name that matches wins, so the order in the config is the
+        // preference order. Matched on Identity rather than the bus name: the
+        // bus name changed when the app was renamed, and the identity is the
+        // part meant to be human-readable in the first place.
+        const wanted = Config.services.preferredPlayers ?? [];
+        for (let i = 0; i < wanted.length; i++) {
+            const needle = String(wanted[i]).toLowerCase();
+            const hit = pool.find(p => (p.identity ?? "").toLowerCase().includes(needle));
+            if (hit)
+                return hit;
+        }
 
-        return preferred ?? pool[0];
+        return pool[0];
     }
 
     readonly property bool hasActive: active !== null

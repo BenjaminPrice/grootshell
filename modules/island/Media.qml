@@ -5,7 +5,7 @@ import qs.services
 import qs.components
 
 // Whatever is playing. Defaults to YouTube Music rather than Spotify — see
-// Config.services.defaultPlayer and the selection rules in services/Players.qml.
+// Config.services.preferredPlayers and the selection rules in services/Players.qml.
 
 Item {
     id: root

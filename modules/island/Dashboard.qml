@@ -13,9 +13,11 @@ import qs.components
 // read past every time you open this for the clock.
 //
 // A calendar is a different proposition: it answers a question the clock cannot
-// ("what is next Tuesday"), which is why it earns the space the toggles did
-// not. It also carries per-day markers, ready for an events source — nothing
-// populates them yet, so today's date is currently the only thing highlighted.
+// ("what is next Tuesday"), which is why it earns the space the toggles did not.
+//
+// The grid and the agenda are one control: clicking a day lists it, and clicking
+// an entry opens its detail in place. Side by side rather than stacked — the
+// island is 360px tall and a stacked pair would give the agenda four rows.
 
 Item {
     id: root
@@ -24,44 +26,54 @@ Item {
         anchors.fill: parent
         spacing: Appearance.spacing.md
 
-        Item {
-            Layout.fillHeight: true
-        }
-
-        StyledText {
-            Layout.alignment: Qt.AlignHCenter
-            text: Time.format("HH:mm")
-            font.pixelSize: Appearance.font.size.xxl
-            color: Theme.text
-        }
-
-        StyledText {
-            Layout.alignment: Qt.AlignHCenter
-            text: Time.format("dddd, d MMMM")
-            color: Theme.textSecondary
-            font.pixelSize: Appearance.font.size.md
-        }
-
-        StyledText {
-            Layout.alignment: Qt.AlignHCenter
-            text: `up ${Sys.formatUptime()}`
-            color: Theme.textMuted
-            font.pixelSize: Appearance.font.size.xs
-            // Uptime comes from the metrics poll, which only runs while the
-            // performance tab is open — so this shows the last known value
-            // rather than nothing, and simply does not tick here.
-            visible: Sys.uptime > 0
-        }
-
-        Calendar {
+        RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: Appearance.spacing.md
-            Layout.maximumWidth: 320
-            Layout.alignment: Qt.AlignHCenter
+            spacing: Appearance.spacing.md
+
+            StyledText {
+                text: Time.format("HH:mm")
+                font.pixelSize: Appearance.font.size.xl
+                color: Theme.text
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                text: Time.format("dddd, d MMMM")
+                color: Theme.textSecondary
+                font.pixelSize: Appearance.font.size.xs
+                elide: Text.ElideRight
+            }
+
+            StyledText {
+                text: `up ${Sys.formatUptime()}`
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
+                // Uptime comes from the metrics poll, which only runs while the
+                // performance tab is open — so this shows the last known value
+                // rather than nothing, and simply does not tick here.
+                visible: Sys.uptime > 0
+            }
         }
 
-        Item {
+        RowLayout {
+            Layout.fillWidth: true
             Layout.fillHeight: true
+            spacing: Appearance.spacing.md
+
+            MonthGrid {
+                id: month
+
+                Layout.preferredWidth: 250
+                Layout.alignment: Qt.AlignTop
+                eventDays: Calendar.eventDays
+                onDayClicked: day => agenda.day = day
+            }
+
+            Agenda {
+                id: agenda
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
         }
     }
 }

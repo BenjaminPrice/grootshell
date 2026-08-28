@@ -5,6 +5,11 @@ import qs.services
 
 // A month grid.
 //
+// Named MonthGrid and not Calendar: services/Calendar.qml is the singleton that
+// FETCHES events, and a component of the same name in a sibling module would be
+// ambiguous in any file importing both — which the dashboard does. The same trap
+// that State.qml fell into against QtQuick's State.
+//
 // Six rows always, never five-or-six. A grid that changes height as you page
 // through months makes everything below it jump, and on the dashboard that is
 // the agenda — so the trailing row is drawn with the next month's days rather
@@ -29,6 +34,11 @@ Item {
     property var eventDays: ({})
 
     readonly property int firstWeekday: 0 // Sunday
+
+    // The grid does not own the selection: it reports a click and whoever is
+    // listening decides what that means. Keeps this reusable as a plain month
+    // view rather than tying it to the agenda beside it.
+    signal dayClicked(date day)
 
     implicitWidth: grid.implicitWidth
     implicitHeight: header.implicitHeight + weekdays.implicitHeight + grid.implicitHeight + Appearance.spacing.md * 2
@@ -184,7 +194,7 @@ Item {
                         width: Math.min(parent.width, parent.height)
                         height: width
                         radius: width / 2
-                        color: cell.isToday ? Theme.accentContainer : "transparent"
+                        color: cell.isToday ? Theme.accentContainer : cellHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
                     }
 
                     StyledText {
@@ -195,6 +205,14 @@ Item {
                         // there to keep the grid six rows tall.
                         color: cell.isToday ? Theme.onAccentContainer : cell.inMonth ? Theme.text : Theme.outlineVariant
                         font.pixelSize: Appearance.font.size.sm
+                    }
+
+                    MouseArea {
+                        id: cellHover
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.dayClicked(cell.modelData)
                     }
 
                     // The event marker. Under the number rather than behind it,

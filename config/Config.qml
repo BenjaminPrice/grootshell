@@ -126,7 +126,12 @@ Singleton {
                 property int metricsInterval: 3000
                 // Only polled while the performance tab is actually visible.
                 property int sensorsInterval: 5000
-                property string defaultPlayer: "YouTube Music"
+                // Substrings matched against an MPRIS player's Identity, in
+                // order, first hit wins. A list rather than one name because the
+                // YouTube Music desktop app was renamed — th-ch/youtube-music is
+                // now pear-devs/pear-desktop — and which string the app reports
+                // is its own business, not something to pin a rebuild on.
+                property var preferredPlayers: ["youtube music", "pear"]
                 property string weatherLocation: ""
             }
         }
