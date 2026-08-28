@@ -73,7 +73,12 @@ PanelWindow {
                 property: "opacity"
                 from: 0
                 to: 1
-                duration: Appearance.anim.enabled ? Appearance.anim.slow : 0
+                // The same length as the palette cross-fade in config/Theme.qml.
+                // The two are not simultaneous — matugen runs after the image is
+                // already on screen — but giving them the same duration makes
+                // them read as one gesture in two parts rather than as an image
+                // change followed by an unrelated colour change.
+                duration: Appearance.anim.enabled ? Appearance.anim.theme : 0
                 easing.type: Easing.InOutQuad
                 onFinished: {
                     // Hand off to the back image and reset, so the next change

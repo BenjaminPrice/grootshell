@@ -23,6 +23,25 @@ import Quickshell.Io
 // semantic colour for either, so a derived one is whatever the algorithm felt
 // like — and "your disk is nearly full" must not change meaning with the
 // wallpaper.
+//
+// ## Why every role animates
+//
+// A new wallpaper rewrites this whole palette at once, and without a Behavior the
+// entire shell changes colour between two frames — every surface, every label,
+// the frame, the bar. That reads as a glitch rather than as a change, because
+// nothing physical recolours instantaneously.
+//
+// So each role eases independently. They all start and finish together, which
+// makes the shell look like one object being lit differently rather than like
+// thirty widgets repainted in the same instant. Cross-fading a rendered SNAPSHOT
+// is the other way to do this and is worse here: it needs the whole shell in a
+// layer, which on a host that encodes every frame for the network costs an extra
+// full-screen texture per frame for the duration.
+//
+// None of these can be `readonly` as a result. A Behavior animates WRITES, and a
+// read-only property is never written — it is re-evaluated — so a Behavior on one
+// is a load-time error that takes the shell down with it. scripts/qml-audit.py
+// has a rule for precisely that mistake.
 
 Singleton {
     id: root
@@ -62,11 +81,48 @@ Singleton {
     // startup, rather than regenerating unconditionally.
     readonly property bool loaded: Object.keys(c).length > 0
 
+    // --- The transition -----------------------------------------------------
+    //
+    // Off until the shell has settled. The first palette arrives a few
+    // milliseconds after startup, when theme.json is read, and animating THAT
+    // would mean every launch — and every reload of the dev loop, which happens
+    // constantly — opens with a half-second colour wash from the compiled-in
+    // fallbacks to the real thing. A change is worth animating; an arrival is
+    // not.
+    //
+    // A plain timer rather than a hook on the first successful read, because
+    // "first read" is not one event: the file may be absent at startup and
+    // written a second later by the generator, and the two cases want the same
+    // answer. Anything after the shell has been up for a moment is a change.
+    property bool animate: false
+
+    Timer {
+        // Comfortably past the FileView's first read, and past the 1500ms
+        // startup generation in services/Theming.qml only if that one is
+        // skipped — a palette generated because none existed SHOULD ease in,
+        // since by then there is something on screen to ease from.
+        interval: 800
+        running: true
+        onTriggered: root.animate = true
+    }
+
+    // Gate for every Behavior below. Game mode stills the shell, and a wallpaper
+    // change during a game should land instantly rather than spend half a second
+    // of encoded frames on a fade nobody is watching.
+    readonly property bool easing: root.animate && Appearance.anim.enabled
+
     // --- Surfaces, darkest to lightest -------------------------------------
     // Tinted toward the wallpaper's own hue rather than neutral grey — that is
     // what scheme-content buys over the default scheme, and it is the difference
     // between a dark theme and a dark theme that belongs to this image.
-    readonly property color background: c.background ?? "#14121b"
+    property color background: c.background ?? "#14121b"
+
+    Behavior on background {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
 
     // The frame and the bar behind it. Its own token rather than reusing
     // `background`, because the two are only incidentally similar: `background`
@@ -74,20 +130,96 @@ Singleton {
     // in the ramp. The frame is a bezel drawn over a photograph, and at that
     // darkness it stops reading as part of the shell and starts reading as the
     // edge of the monitor.
-    readonly property color frame: c.frame ?? "#201e27"
+    property color frame: c.frame ?? "#201e27"
 
-    readonly property color surface: c.surface ?? "#1c1a23"
-    readonly property color surfaceContainer: c.surfaceContainer ?? "#201e27"
-    readonly property color surfaceContainerHigh: c.surfaceContainerHigh ?? "#2b2932"
-    readonly property color surfaceContainerHighest: c.surfaceContainerHighest ?? "#36333d"
+    Behavior on frame {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color surface: c.surface ?? "#1c1a23"
+
+    Behavior on surface {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color surfaceContainer: c.surfaceContainer ?? "#201e27"
+
+    Behavior on surfaceContainer {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color surfaceContainerHigh: c.surfaceContainerHigh ?? "#2b2932"
+
+    Behavior on surfaceContainerHigh {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color surfaceContainerHighest: c.surfaceContainerHighest ?? "#36333d"
+
+    Behavior on surfaceContainerHighest {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
 
     // --- Foreground ---------------------------------------------------------
-    readonly property color text: c.text ?? "#e6e0ed"
-    readonly property color textSecondary: c.textSecondary ?? "#c9c4d4"
-    readonly property color textMuted: c.textMuted ?? "#938e9e"
+    property color text: c.text ?? "#e6e0ed"
 
-    readonly property color outline: c.outline ?? "#938e9e"
-    readonly property color outlineVariant: c.outlineVariant ?? "#484553"
+    Behavior on text {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color textSecondary: c.textSecondary ?? "#c9c4d4"
+
+    Behavior on textSecondary {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color textMuted: c.textMuted ?? "#938e9e"
+
+    Behavior on textMuted {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color outline: c.outline ?? "#938e9e"
+
+    Behavior on outline {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color outlineVariant: c.outlineVariant ?? "#484553"
+
+    Behavior on outlineVariant {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
 
     // --- Accent -------------------------------------------------------------
     // Each container comes WITH its paired foreground, and text drawn on one of
@@ -95,10 +227,41 @@ Singleton {
     // 3 computes the pairing to be legible for any source colour; choosing by eye
     // works until the wallpaper is yellow. Measured on one: accent on
     // accentContainer is 1.32:1, where onAccentContainer on it is 7.09:1.
-    readonly property color accent: c.accent ?? "#cbbeff"
-    readonly property color accentContainer: c.accentContainer ?? "#493e76"
-    readonly property color onAccent: c.onAccent ?? "#32285e"
-    readonly property color onAccentContainer: c.onAccentContainer ?? "#ffffff"
+    property color accent: c.accent ?? "#cbbeff"
+
+    Behavior on accent {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color accentContainer: c.accentContainer ?? "#493e76"
+
+    Behavior on accentContainer {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color onAccent: c.onAccent ?? "#32285e"
+
+    Behavior on onAccent {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color onAccentContainer: c.onAccentContainer ?? "#ffffff"
+
+    Behavior on onAccentContainer {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
 
     // Secondary text ON a container fill — the generic name under an app in the
     // launcher, the detail line under a network. Dimmed to keep the hierarchy
@@ -111,11 +274,49 @@ Singleton {
     readonly property color onAccentContainerMuted: Qt.alpha(onAccentContainer, 0.8)
 
     // --- Semantic -----------------------------------------------------------
-    readonly property color success: c.success ?? "#a9d5a0"
-    readonly property color warning: c.warning ?? "#e8c98a"
-    readonly property color error: c.error ?? "#ffb4ab"
-    readonly property color onError: c.onError ?? "#690005"
+    //
+    // These ease too, even though success and warning are fixed per mode rather
+    // than derived. They still change when the mode flips, and a green that
+    // snaps while every surface around it fades is the one thing on screen that
+    // looks broken.
+    property color success: c.success ?? "#a9d5a0"
 
+    Behavior on success {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color warning: c.warning ?? "#e8c98a"
+
+    Behavior on warning {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color error: c.error ?? "#ffb4ab"
+
+    Behavior on error {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    property color onError: c.onError ?? "#690005"
+
+    Behavior on onError {
+        enabled: root.easing
+        ColorAnimation {
+            duration: Appearance.anim.theme
+        }
+    }
+
+    // Not animated: it is black in every palette this generator produces, and a
+    // shadow is the one thing whose job is to be unnoticed.
     readonly property color shadow: c.shadow ?? "#000000"
 
     // Layering helper. Panels sit on the border, popouts sit on panels, and each

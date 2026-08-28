@@ -93,6 +93,16 @@ Singleton {
         readonly property int normal: 200
         readonly property int slow: 320
 
+        // Recolouring the entire shell after a wallpaper change. Slower than
+        // anything else here on purpose: this is the largest change the shell
+        // ever makes to itself, and at panel speed a full-screen palette swap
+        // reads as a flicker rather than as a transition.
+        //
+        // Not slower still, though. Every frame of it is a full-screen delta for
+        // the encoder — the most expensive kind — so this is deliberately about
+        // half of what a local desktop would use for the same effect.
+        readonly property int theme: 450
+
         // Material's standard easing. Fast out, slow in — motion that starts
         // decisively and settles, rather than drifting at both ends.
         readonly property var standard: [0.2, 0, 0, 1, 1, 1]
