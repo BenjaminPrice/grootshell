@@ -52,6 +52,21 @@ Item {
     property string result: ""
     property string status: ""
 
+    // The endpoint is Google's unofficial gtx one, and it throttles by IP. A
+    // 600ms debounce while someone types is enough to earn a 429, and once
+    // earned it persists for a while — so the defence is to ask less often
+    // rather than to ask again harder.
+    //
+    // What was last SENT, so an unchanged string is never sent twice. Committing
+    // an IME candidate can fire textChanged without changing the text.
+    property string lastSent: ""
+
+    // Backoff after a 429, in milliseconds. Doubles per rejection up to a
+    // ceiling, resets on success.
+    readonly property int backoffFloor: 5000
+    readonly property int backoffCeiling: 120000
+    property int backoff: 0
+
     // Deferred, for the same reason as the wallpaper picker: the panel extrudes
     // from zero size, so on the frame `active` flips there is nothing on screen
     // yet, and an invisible item cannot take active focus.
@@ -67,9 +82,22 @@ Item {
         if (!text) {
             root.result = "";
             root.status = "";
+            root.lastSent = "";
             return;
         }
 
+        // Nothing changed, so there is nothing to ask. Cheap, and it removes the
+        // most common source of duplicate requests.
+        if (text === root.lastSent && root.result !== "")
+            return;
+
+        if (retry.running) {
+            // Still serving a rejection. The pending retry will pick up whatever
+            // the text is by then, so this does not need to queue anything.
+            return;
+        }
+
+        root.lastSent = text;
         root.status = "Translating…";
 
         const url = "https://translate.googleapis.com/translate_a/single" + "?client=gtx" + `&sl=${encodeURIComponent(root.from)}` + `&tl=${encodeURIComponent(root.to)}` + "&dt=t" + `&q=${encodeURIComponent(text)}`;
@@ -85,7 +113,21 @@ Item {
                 // never came back. That is a different problem from the endpoint
                 // saying no, and conflating the two under "Failed" is what made
                 // this undiagnosable from the panel.
-                root.status = xhr.status === 0 ? "No response — check the network" : `Rejected (${xhr.status})`;
+                if (xhr.status === 429) {
+                    // Rate limited. Back off, say so with the wait visible, and
+                    // retry by itself — a rejection you have to notice and act
+                    // on is worse than one that resolves while you keep typing.
+                    root.backoff = Math.min(root.backoffCeiling, Math.max(root.backoffFloor, root.backoff * 2));
+                    root.lastSent = "";
+                    retry.interval = root.backoff;
+                    retry.restart();
+                    root.status = `Rate limited — retrying in ${Math.round(root.backoff / 1000)}s`;
+                } else {
+                    // 0 means no HTTP response at all — the request never left,
+                    // or never came back. That is a different problem from the
+                    // endpoint saying no.
+                    root.status = xhr.status === 0 ? "No response — check the network" : `Rejected (${xhr.status})`;
+                }
 
                 // To the journal as well, because the panel has room for a
                 // phrase and this needs a status line.
@@ -100,6 +142,7 @@ Item {
                 const parsed = JSON.parse(xhr.responseText);
                 root.result = parsed[0].map(part => part[0]).join("");
                 root.status = "";
+                root.backoff = 0;
             } catch (e) {
                 root.status = "Could not read the response";
                 console.warn("grootshell: translate parse failed —", e, "body:", (xhr.responseText || "").slice(0, 200));
@@ -182,9 +225,21 @@ Item {
             }
         }
 
+        // 1200ms rather than 600. Every keystroke that survives the debounce is
+        // a request against an endpoint that counts them, and half a second of
+        // extra latency on a panel you opened deliberately costs less than the
+        // minutes of "Rate limited" that the faster setting bought.
         Timer {
             id: debounce
-            interval: 600
+            interval: 1200
+            onTriggered: root.translate()
+        }
+
+        // Fires once the backoff has elapsed, translating whatever is in the
+        // box by then.
+        Timer {
+            id: retry
+            repeat: false
             onTriggered: root.translate()
         }
 
