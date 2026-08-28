@@ -1,20 +1,25 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import qs.config
 import qs.services
 import qs.components
 
 // Translation.
 //
-// Uses XMLHttpRequest rather than shelling out to curl: it is built into QML, so
-// there is one fewer process spawn and one fewer runtime dependency, and the
-// response arrives as a string we were going to parse anyway.
-//
 // The endpoint is Google's unauthenticated translate_a/single, which is what
 // every small translator front-end uses. It needs no key — which is the point,
 // since groot has no credentials for anything — but it is also unofficial, so it
 // is treated as best-effort: a failure shows a message, it does not throw.
+//
+// Requests go through curl rather than XMLHttpRequest. This used to use XHR, on
+// the reasoning that it is built in and saves a process spawn. That held until
+// the endpoint started refusing it: Qt's XHR got 429 while curl on the same
+// host, at the same moment, got 200 — repeatedly, and on a freshly restarted
+// shell, so neither a stale cookie nor an IP throttle. The 429 body is Google's
+// "Sorry..." bot page rather than a rate-limit response, so the difference is
+// in what the two clients send. See the Process at the bottom of this file.
 
 Item {
     id: root
@@ -53,6 +58,10 @@ Item {
 
     property string result: ""
     property string status: ""
+
+    // Chrome's, near enough. The endpoint refuses an unidentified client — see
+    // the Process below for why this is curl rather than XMLHttpRequest.
+    readonly property string userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     // What the endpoint reported the source to be. Only meaningful while `from`
     // is "auto", and only used to give the swap a concrete language to put in
@@ -137,57 +146,56 @@ Item {
         root.lastSent = text;
         root.status = "Translating…";
 
-        const url = "https://translate.googleapis.com/translate_a/single" + "?client=gtx" + `&sl=${encodeURIComponent(root.from)}` + `&tl=${encodeURIComponent(root.to)}` + "&dt=t" + `&q=${encodeURIComponent(text)}`;
+        request.command = ["curl", "-sS", "--max-time", "15", "--compressed",
+            // A real User-Agent. The endpoint answers an unidentified client
+            // with its "Sorry..." bot page, which is a 429 — see the note above
+            // the Process below.
+            "-A", root.userAgent,
+            // The HTTP status on its own last line, so a rejection can be told
+            // from a body that merely failed to parse.
+            "-w", "\n%{http_code}",
+            "https://translate.googleapis.com/translate_a/single" + "?client=gtx" + `&sl=${encodeURIComponent(root.from)}` + `&tl=${encodeURIComponent(root.to)}` + "&dt=t" + `&q=${encodeURIComponent(text)}`];
+        request.running = true;
+    }
 
-        const xhr = new XMLHttpRequest();
-        xhr.open("GET", url);
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState !== XMLHttpRequest.DONE)
-                return;
+    function handleResponse(payload: string): void {
+        // curl appended the status as the final line.
+        const cut = payload.lastIndexOf("\n");
+        const status = parseInt(cut < 0 ? payload : payload.slice(cut + 1), 10);
+        const body = cut < 0 ? "" : payload.slice(0, cut);
 
-            if (xhr.status !== 200) {
-                // 0 means no HTTP response at all — the request never left, or
-                // never came back. That is a different problem from the endpoint
-                // saying no, and conflating the two under "Failed" is what made
-                // this undiagnosable from the panel.
-                if (xhr.status === 429) {
-                    // Rate limited. Back off, say so with the wait visible, and
-                    // retry by itself — a rejection you have to notice and act
-                    // on is worse than one that resolves while you keep typing.
-                    root.backoff = Math.min(root.backoffCeiling, Math.max(root.backoffFloor, root.backoff * 2));
-                    root.lastSent = "";
-                    retry.interval = root.backoff;
-                    retry.restart();
-                    root.status = `Rate limited — retrying in ${Math.round(root.backoff / 1000)}s`;
-                } else {
-                    // 0 means no HTTP response at all — the request never left,
-                    // or never came back. That is a different problem from the
-                    // endpoint saying no.
-                    root.status = xhr.status === 0 ? "No response — check the network" : `Rejected (${xhr.status})`;
-                }
+        if (status === 429) {
+            // Rate limited. Back off, say so with the wait visible, and retry by
+            // itself — a rejection you have to notice and act on is worse than
+            // one that resolves while you keep typing.
+            root.backoff = Math.min(root.backoffCeiling, Math.max(root.backoffFloor, root.backoff * 2));
+            root.lastSent = "";
+            retry.interval = root.backoff;
+            retry.restart();
+            root.status = `Rate limited — retrying in ${Math.round(root.backoff / 1000)}s`;
+            return;
+        }
 
-                // To the journal as well, because the panel has room for a
-                // phrase and this needs a status line.
-                console.warn("grootshell: translate failed —", "status:", xhr.status, "statusText:", xhr.statusText || "(none)", "body:", (xhr.responseText || "").slice(0, 200));
-                return;
-            }
+        if (status !== 200) {
+            root.status = status ? `Rejected (${status})` : "No response — check the network";
+            console.warn("grootshell: translate failed —", "status:", status, "body:", body.slice(0, 200));
+            return;
+        }
 
-            try {
-                // Shape is [[[chunk, original, …], …], …] — long input comes
-                // back split into sentences, so the chunks have to be rejoined
-                // rather than just taking the first.
-                const parsed = JSON.parse(xhr.responseText);
-                root.result = parsed[0].map(part => part[0]).join("");
-                root.status = "";
-                root.backoff = 0;
-                // Index 2 is the detected source language.
-                root.detected = parsed[2] ?? "";
-            } catch (e) {
-                root.status = "Could not read the response";
-                console.warn("grootshell: translate parse failed —", e, "body:", (xhr.responseText || "").slice(0, 200));
-            }
-        };
-        xhr.send();
+        try {
+            // Shape is [[[chunk, original, …], …], …] — long input comes back
+            // split into sentences, so the chunks have to be rejoined rather
+            // than just taking the first.
+            const parsed = JSON.parse(body);
+            root.result = parsed[0].map(part => part[0]).join("");
+            root.status = "";
+            root.backoff = 0;
+            // Index 2 is the detected source language.
+            root.detected = parsed[2] ?? "";
+        } catch (e) {
+            root.status = "Could not read the response";
+            console.warn("grootshell: translate parse failed —", e, "body:", body.slice(0, 200));
+        }
     }
 
     ColumnLayout {
@@ -293,6 +301,41 @@ Item {
             id: retry
             repeat: false
             onTriggered: root.translate()
+        }
+
+        // curl, not XMLHttpRequest, which is what this used to be.
+        //
+        // Qt's XHR was getting 429 from this endpoint while curl on the same
+        // host, at the same moment, got 200 — repeatedly, and immediately after
+        // a shell restart, so it was not a stale cookie or an IP throttle. The
+        // 429 body is Google's "Sorry..." bot-detection page rather than a rate
+        // limit, and the difference between the two clients is what they send.
+        // Rather than keep guessing which header it dislikes, this uses the
+        // client that demonstrably works and states its User-Agent outright.
+        //
+        // The process spawn per translation is real but small, and this shell
+        // already shells out for the calendar and the theme generator.
+        Process {
+            id: request
+            running: false
+
+            stdout: StdioCollector {
+                onStreamFinished: root.handleResponse(text)
+            }
+
+            stderr: StdioCollector {
+                onStreamFinished: {
+                    if (text.trim())
+                        console.warn("grootshell: translate curl —", text.trim());
+                }
+            }
+
+            onExited: code => {
+                if (code !== 0 && root.status === "Translating…") {
+                    root.status = "No response — check the network";
+                    console.warn("grootshell: translate curl exited", code);
+                }
+            }
         }
 
         Rectangle {
