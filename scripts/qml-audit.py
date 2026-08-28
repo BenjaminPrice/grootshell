@@ -24,6 +24,13 @@ Each rule here exists because it shipped:
                         file importing both QtQuick and this module then has two.
                         Shipped once, as State.qml against QtQuick's State.
 
+  missing-import        A type defined elsewhere in this tree, used in a file
+                        that never imports the module holding it. Parses, and
+                        fails at load with "X is not a type" — which restart-
+                        loops the shell. Shipped once, as EdgeReservation in
+                        shell.qml, which imported every qs.modules.* and not
+                        qs.components.
+
   duplicate-id          The same id twice in one file. QML ids are unique per
                         component; qmlformat accepts it and the engine rejects
                         it at load. Shipped once, from a delegate being wrapped
@@ -120,6 +127,11 @@ READONLY = re.compile(r"readonly\s+property\s+\w+\s+(\w+)")
 # the duplicate that shipped was written. The lookbehind keeps it from matching
 # a property whose name merely ends in "id", such as `elementId:`.
 ID_LINE = re.compile(r"(?<![\w.])id:\s*(\w+)")
+IMPORT = re.compile(r"^\s*import\s+(qs(?:\.[\w.]+)?)", re.M)
+INLINE_COMPONENT = re.compile(r"^\s*component\s+(\w+)\s*:", re.M)
+# An object declaration: a capitalised type at the start of a line, then a brace.
+# Excludes `on Foo {` and property bindings, which never start a line this way.
+OBJECT_DECL = re.compile(r"^\s*([A-Z]\w*)\s*\{", re.M)
 REQUIRED = re.compile(r"required\s+property\s+[\w.<>]+\s+(\w+)")
 DELEGATE = re.compile(r"delegate:\s*([A-Z]\w*)\s*\{")
 BEHAVIOR = re.compile(r"Behavior\s+on\s+([\w.]+)")
@@ -247,6 +259,52 @@ def audit(path: Path, required: dict[str, set[str]] | None = None) -> list[tuple
     return findings
 
 
+def module_of(path: Path, root: Path) -> str:
+    """The qs module a file belongs to: components/Foo.qml -> "qs.components"."""
+    rel = path.parent.relative_to(root)
+    return "qs." + ".".join(rel.parts) if rel.parts else "qs"
+
+
+def check_imports(files: list[Path], root: Path) -> list[tuple[Path, int, str, str]]:
+    """Types used without importing the module that defines them.
+
+    Only types this tree defines are considered — anything from QtQuick or
+    Quickshell is someone else's problem and resolves through its own import.
+    """
+    defined: dict[str, str] = {}
+    for f in files:
+        defined[f.stem] = module_of(f, root)
+
+    findings: list[tuple[Path, int, str, str]] = []
+
+    for f in files:
+        text = f.read_text(encoding="utf-8")
+        own = module_of(f, root)
+        imported = set(IMPORT.findall(text))
+        # Types declared inline with `component Name:` need no import.
+        inline = set(INLINE_COMPONENT.findall(text))
+
+        seen: set[str] = set()
+        for match in OBJECT_DECL.finditer(text):
+            name = match.group(1)
+            if name in seen or name == f.stem or name in inline:
+                continue
+            source = defined.get(name)
+            if source is None or source == own or source in imported:
+                continue
+            seen.add(name)
+            findings.append(
+                (
+                    f,
+                    line_of(text, match.start()),
+                    "missing-import",
+                    f"'{name}' is defined in {source}, which this file does not import",
+                )
+            )
+
+    return findings
+
+
 def main() -> int:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
     files = sorted(p for p in root.rglob("*.qml") if ".git" not in p.parts)
@@ -262,6 +320,11 @@ def main() -> int:
         for line, rule, message in audit(path, required):
             print(f"{path}:{line}: {rule}: {message}", file=sys.stderr)
             total += 1
+
+    # Cross-file, so it runs once over the whole set rather than per file.
+    for path, line, rule, message in check_imports(files, root):
+        print(f"{path}:{line}: {rule}: {message}", file=sys.stderr)
+        total += 1
 
     if total:
         print(f"\nqml-audit: {total} finding(s) in {len(files)} file(s)", file=sys.stderr)
