@@ -40,13 +40,34 @@ Singleton {
         root.generate(Wallpapers.current);
     }
 
+    // Cycles auto -> light -> dark -> auto and regenerates. Bound to a key in
+    // the wallpaper switcher, because that is where you are standing when you
+    // notice the mode is wrong.
+    function cycleMode(): void {
+        const order = ["auto", "light", "dark"];
+        const next = order[(order.indexOf(Persist.themeMode) + 1) % order.length];
+        Persist.themeMode = next;
+        root.regenerate();
+    }
+
     function generate(path: string): void {
         if (!path || path === root.lastGenerated || generator.running)
             return;
         root.pending = path;
-        generator.command = ["grootshell-theme", path];
+        // The generator picks light or dark from the image unless told; passing
+        // the mode is what overrides that, so "auto" passes nothing at all.
+        generator.command = Persist.themeMode === "auto" ? ["grootshell-theme", path] : ["grootshell-theme", path, Persist.themeMode];
         generator.running = true;
         console.log("grootshell: generating colours from", path);
+    }
+
+    // A mode change has to regenerate the same image it just generated, so the
+    // dedupe has to be cleared rather than worked around.
+    Connections {
+        target: Persist
+        function onThemeModeChanged(): void {
+            root.lastGenerated = "";
+        }
     }
 
     Connections {

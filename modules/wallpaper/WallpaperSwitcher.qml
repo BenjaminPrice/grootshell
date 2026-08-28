@@ -118,6 +118,36 @@ DockedPanel {
                 font.pixelSize: Appearance.font.size.xs
                 mono: true
             }
+
+            // The light/dark override, shown rather than hidden behind the key.
+            // Brightness detection is a heuristic and gets the occasional image
+            // wrong; when it does, this is where you are already standing.
+            Rectangle {
+                implicitWidth: modeRow.implicitWidth + Appearance.padding.md * 2
+                implicitHeight: modeRow.implicitHeight + Appearance.padding.xs * 2
+                radius: Appearance.rounding.full
+                color: Persist.themeMode === "auto" ? "transparent" : Theme.accentContainer
+                border.width: Persist.themeMode === "auto" ? 1 : 0
+                border.color: Theme.outlineVariant
+
+                RowLayout {
+                    id: modeRow
+                    anchors.centerIn: parent
+                    spacing: Appearance.spacing.xs
+
+                    Icon {
+                        text: Persist.themeMode === "light" ? "light_mode" : Persist.themeMode === "dark" ? "dark_mode" : "brightness_auto"
+                        color: Persist.themeMode === "auto" ? Theme.textMuted : Theme.onAccentContainer
+                        size: Appearance.font.size.xs
+                    }
+
+                    StyledText {
+                        text: `${Persist.themeMode}  ·  M`
+                        color: Persist.themeMode === "auto" ? Theme.textMuted : Theme.onAccentContainer
+                        font.pixelSize: Appearance.font.size.xs
+                    }
+                }
+            }
         }
 
         // --- Empty ----------------------------------------------------------
@@ -154,6 +184,16 @@ DockedPanel {
             Keys.onReturnPressed: root.apply()
             Keys.onEnterPressed: root.apply()
             Keys.onSpacePressed: root.apply()
+
+            // M cycles auto -> light -> dark. Not a compositor bind: it only
+            // means anything while this panel has focus, and spending a global
+            // chord on it would be spending it on something used once a month.
+            Keys.onPressed: event => {
+                if (event.key === Qt.Key_M) {
+                    Theming.cycleMode();
+                    event.accepted = true;
+                }
+            }
 
             delegate: Item {
                 id: tile

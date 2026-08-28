@@ -30,6 +30,7 @@ Singleton {
     id: root
 
     property alias wallpaper: adapter.wallpaper
+    property alias themeMode: adapter.themeMode
 
     FileView {
         path: `${Quickshell.stateDir}/state.json`
@@ -47,6 +48,12 @@ Singleton {
             // Absolute path of the current wallpaper. Empty means "not chosen
             // yet"; services/Wallpapers.qml then picks the first it finds.
             property string wallpaper: ""
+
+            // "auto", "light" or "dark". auto lets the generator decide from the
+            // wallpaper's brightness, which is right nearly always; the two
+            // explicit values are for the images it reads wrong, and there is no
+            // way to know which those are without looking at one.
+            property string themeMode: "auto"
         }
     }
 }
