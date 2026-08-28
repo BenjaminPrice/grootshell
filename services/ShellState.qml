@@ -27,6 +27,12 @@ Singleton {
     property bool switcher: false
     property bool keybinds: false
 
+    // Deliberately NOT in `exclusive` below. The volume readout is a 48px strip
+    // pinned to the right edge that takes no keyboard focus and overlaps
+    // nothing; closing the launcher because someone checked the volume, or the
+    // reverse, would be a rule applied for its own sake.
+    property bool volume: false
+
     property string islandTab: Config.island.defaultTab
 
     // Only one of these can be up at a time. They all want keyboard focus and

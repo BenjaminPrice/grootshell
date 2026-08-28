@@ -10,13 +10,20 @@ import qs.components
 // The workspace strip.
 //
 // Caelestia's version, laid out horizontally rather than down the left edge: a
-// rounded track holding one slot per workspace, where an empty workspace is a
-// dot, an occupied one shows the icons of what is actually running on it, and
-// the focused one is wrapped in a filled pill.
+// rounded track holding one slot per workspace, where an empty workspace shows
+// its number, an occupied one shows the icons of what is actually running on it,
+// and the focused one is wrapped in a filled pill.
 //
 // Icons rather than numbers because the useful question is "where did I leave
 // the browser", not "which integer am I on". A number tells you nothing you did
-// not already know from the highlight.
+// not already know from the highlight — so the numeral appears only when a
+// workspace is EMPTY and there is nothing better to show.
+//
+// Kanji numerals for those, not digits. An empty slot is a placeholder, and a
+// row of Arabic digits beside a row of application icons reads as data; 一二三
+// reads as an ornament, which is what an empty slot should be. They need a CJK
+// face, which the shell's wrapped fontconfig would not otherwise have — see
+// nix/package.nix.
 //
 // Switchable three ways: the SUPER+1..5 binds, a click on a slot, and a scroll
 // anywhere over the track. Scroll matters on a machine driven through a stream,
@@ -28,6 +35,15 @@ Item {
 
     readonly property int count: Config.bar.workspaces
     readonly property int focused: Hyprland.focusedWorkspace?.id ?? 1
+
+    // Indexed rather than computed: there is no arithmetic that turns 4 into 四,
+    // and the list only has to reach Config.bar.workspaces. Anything past the end
+    // falls back to the digit rather than showing nothing.
+    readonly property var numerals: ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+
+    function numeralFor(n: int): string {
+        return root.numerals[n - 1] ?? String(n);
+    }
 
     // Cap the icons per workspace. Ten terminals on one workspace should not be
     // allowed to push the clock off centre.
@@ -92,7 +108,7 @@ Item {
     function switchBy(delta: int): void {
         const next = Math.min(root.count, Math.max(1, root.focused + delta));
         if (next !== root.focused)
-            Hyprland.dispatch(`workspace ${next}`);
+            Hypr.focusWorkspace(next);
     }
 
     Rectangle {
@@ -121,13 +137,11 @@ Item {
                     readonly property bool occupied: windows.length > 0
                     readonly property bool active: root.focused === slot.wsId
 
-                    // An empty slot is a dot; an occupied one is as wide as its
-                    // icons. The active slot keeps a minimum width so the pill
-                    // is still a pill when the workspace is empty.
-                    implicitWidth: Math.max(active ? dotSize * 2.4 : dotSize, content.implicitWidth + (occupied ? Appearance.padding.sm * 2 : 0))
+                    // An empty slot is its numeral; an occupied one is as wide
+                    // as its icons. The active slot keeps a minimum width so the
+                    // pill is still a pill when the workspace is empty.
+                    implicitWidth: Math.max(active ? numeral.implicitWidth + Appearance.padding.md * 2 : numeral.implicitWidth + Appearance.padding.xs * 2, content.implicitWidth + (occupied ? Appearance.padding.sm * 2 : 0))
                     implicitHeight: Appearance.font.size.lg + Appearance.padding.xs * 2
-
-                    readonly property int dotSize: Math.round(Appearance.font.size.sm * 0.7)
 
                     radius: Appearance.rounding.full
                     color: active ? Theme.accentContainer : "transparent"
@@ -203,14 +217,18 @@ Item {
                         }
                     }
 
-                    // --- Dot, when empty ------------------------------------
-                    Rectangle {
+                    // --- Numeral, when empty --------------------------------
+                    StyledText {
+                        id: numeral
+
                         anchors.centerIn: parent
                         visible: !slot.occupied
-                        width: slot.dotSize
-                        height: slot.dotSize
-                        radius: height / 2
+                        text: root.numeralFor(slot.wsId)
+                        // Dimmer than a running workspace's icons: this is the
+                        // absence of content, and it should not compete with the
+                        // slots that have some.
                         color: slot.active ? Theme.onAccentContainer : Theme.outlineVariant
+                        font.pixelSize: Appearance.font.size.sm
 
                         Behavior on color {
                             enabled: Appearance.anim.enabled
@@ -227,7 +245,7 @@ Item {
                         // height and a little either side.
                         anchors.margins: -Appearance.spacing.xs
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: Hyprland.dispatch(`workspace ${slot.wsId}`)
+                        onClicked: Hypr.focusWorkspace(slot.wsId)
                     }
                 }
             }

@@ -307,9 +307,26 @@ ShellRoot {
                     Region {
                         item: keybindsModal.visible ? keybindsModal : null
                     }
-                    // The OSD is deliberately absent: it is feedback, not a
-                    // control, and it appears exactly when your pointer might be
-                    // somewhere near the right edge doing something else.
+                    // The OSD contributes two regions rather than none.
+                    //
+                    // Its trigger strip is always live: a border-width sliver
+                    // beside the volume readout, which is what makes hovering
+                    // the right edge open it. Hover only — that sliver lies on
+                    // a window's resize edge, and taking a button there would
+                    // quietly break dragging it.
+                    //
+                    // The body joins the mask only once something has opened it
+                    // deliberately, so the readout that flashes up from a volume
+                    // key still swallows nothing.
+                    Region {
+                        // Gated on the OSD root, which game mode hides — the
+                        // stripped desktop should not be quietly holding a strip
+                        // of the right edge away from a fullscreen game.
+                        item: osd.visible ? osd.trigger : null
+                    }
+                    Region {
+                        item: osd.wantsInput ? osd : null
+                    }
                 }
             }
         }

@@ -40,7 +40,7 @@ Panel {
     function focus(toplevel): void {
         // address is the stable handle; title changes under you and class is
         // not unique when two windows of the same app are open.
-        Hyprland.dispatch(`focuswindow address:${toplevel.address}`);
+        Hypr.focusWindow(toplevel.address);
         ShellState.close("switcher");
     }
 

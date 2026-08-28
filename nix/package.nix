@@ -13,6 +13,7 @@
   material-symbols,
   rubik,
   nerd-fonts,
+  noto-fonts-cjk-sans,
   # Everything the QML shells out to. There is no C++ plugin, so anything the
   # shell cannot get from Quickshell's own services comes from one of these.
   bash,
@@ -65,6 +66,11 @@ let
       material-symbols
       rubik
       nerd-fonts.caskaydia-cove
+      # For the kanji numerals on empty workspaces. None of the three above
+      # carry CJK, and this fontconfig is CLOSED — the host having Noto CJK
+      # installed does not help, because the shell does not read the system set.
+      # Without this the workspace strip renders tofu.
+      noto-fonts-cjk-sans
     ];
   };
 

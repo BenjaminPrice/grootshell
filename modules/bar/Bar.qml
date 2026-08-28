@@ -70,7 +70,22 @@ Item {
                 // the centre group, which is anchored independently and would
                 // simply be overlapped.
                 Layout.maximumWidth: Math.max(0, (strip.width - centre.width) / 2 - Appearance.spacing.xl)
-                text: Hyprland.activeToplevel?.title ?? ""
+
+                // Cross-checked against the focused workspace rather than read
+                // straight off activeToplevel. Switching to an empty workspace
+                // left the previous window's title sitting in the bar: Hyprland
+                // clears its own active window (hyprctl activewindow returns an
+                // empty title there), but the toplevel this side keeps pointing
+                // at the last window that had focus. Asking "is it on the
+                // workspace I am actually looking at" is true regardless of
+                // which of the two is stale.
+                text: {
+                    const t = Hyprland.activeToplevel;
+                    if (!t)
+                        return "";
+                    const ws = t.workspace?.id ?? -1;
+                    return ws === (Hyprland.focusedWorkspace?.id ?? -1) ? (t.title ?? "") : "";
+                }
                 color: Theme.textSecondary
                 elide: Text.ElideRight
             }
@@ -189,26 +204,28 @@ Item {
                     size: Appearance.font.size.lg
                 }
 
+                // No network indicator. groot is wired and has never been
+                // anything else, so it was a permanently green icon reporting a
+                // fact that cannot change — and the one thing it did report,
+                // going down, is not something a status glyph is going to be
+                // the way you find out about. The popout still exists and its
+                // IPC handler still opens it, for the day this machine is
+                // somewhere with wifi.
+
                 Icon {
-                    text: Net.icon()
-                    color: Net.connected ? Theme.textSecondary : Theme.error
+                    text: Volume.icon()
+                    color: ShellState.volume ? Theme.accent : Volume.muted ? Theme.error : Theme.textSecondary
                     size: Appearance.font.size.lg
 
                     MouseArea {
                         anchors.fill: parent
                         anchors.margins: -4
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            Net.scan();
-                            ShellState.toggle("network");
-                        }
+                        // The same readout the right edge shows on hover, so
+                        // there is one volume surface reachable two ways rather
+                        // than a second one that happens to look alike.
+                        onClicked: ShellState.volume = !ShellState.volume
                     }
-                }
-
-                Icon {
-                    text: Volume.icon()
-                    color: Volume.muted ? Theme.error : Theme.textSecondary
-                    size: Appearance.font.size.lg
                 }
 
                 Icon {
