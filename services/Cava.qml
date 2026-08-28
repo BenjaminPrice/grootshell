@@ -53,14 +53,38 @@ Singleton {
     // editing it.
     readonly property string configPath: `${Quickshell.stateDir}/cava.conf`
 
+    // Whether the "not found" note has already been made, so re-probing does not
+    // fill the journal with it.
+    property bool warned: false
+
     Process {
         id: probe
         command: ["sh", "-c", "command -v cava"]
         running: true
         onExited: code => {
             root.available = code === 0;
-            if (code !== 0)
+            if (code === 0) {
+                root.warned = false;
+            } else if (!root.warned) {
+                root.warned = true;
                 console.log("grootshell: cava not found, the spectrum ring will stay still");
+            }
+        }
+    }
+
+    // Probing once at startup is not enough, and this cost an evening to work
+    // out: the shell was running before the rebuild that installed cava landed,
+    // so it probed, found nothing, and the ring stayed dead for every track
+    // after — with no symptom except a visualiser that would not visualise.
+    //
+    // A shell outlives the system it started on. Asking again the moment
+    // something starts playing costs one `command -v` per playback start, which
+    // is nothing, and means installing cava and pressing play is all it takes.
+    Connections {
+        target: Players
+        function onPlayingChanged(): void {
+            if (Players.playing && !root.available && !probe.running)
+                probe.running = true;
         }
     }
 

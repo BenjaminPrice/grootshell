@@ -40,14 +40,23 @@ Item {
     // Bar length at silence and at full scale. The resting length is not zero:
     // a ring that vanishes when the music stops looks like a bug, where a ring
     // of short even ticks looks like an instrument at rest.
-    property real minLength: 3
+    //
+    // It has to be long enough to READ as a ring, though. It was not — at rest
+    // the bars were barely longer than they were wide, which looked like nothing
+    // at all, so a missing visualiser and a silent one were indistinguishable.
+    property real minLength: 6
     property real maxLength: 26
 
     property real barWidth: 4
     property color color: Theme.accent
 
+    // How many bands to expect before any have arrived. Only used to shape the
+    // resting ring: without it the ring drew a different NUMBER of bars when
+    // idle than when running, so the first frame of audio visibly reshuffled it.
+    property int bands: 16
+
     // Each band appears twice, once down each side.
-    readonly property int segments: (root.levels.length > 0 ? root.levels.length : 8) * 2
+    readonly property int segments: (root.levels.length > 0 ? root.levels.length : root.bands) * 2
 
     function lengthAt(index: int): real {
         const bands = root.segments / 2;

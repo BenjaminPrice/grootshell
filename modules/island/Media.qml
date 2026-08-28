@@ -191,9 +191,10 @@ Item {
             Waveform {
                 anchors.fill: parent
                 levels: Cava.levels
+                bands: Cava.bars
                 innerRadius: disc.ringInner
                 maxLength: disc.ringMax
-                minLength: Math.max(2, disc.span * 0.014)
+                minLength: Math.max(4, disc.span * 0.026)
                 barWidth: Math.max(3, disc.span * 0.018)
                 color: Theme.accent
 
