@@ -202,7 +202,7 @@ Panel {
                 {
                     key: "island.defaultTab",
                     label: "Dashboard opens on",
-                    type: "choice",
+                    type: "select",
                     options: ["dashboard", "media", "performance", "wallpaper", "weather"]
                 },
                 {
@@ -465,6 +465,11 @@ Panel {
                 contentHeight: column.implicitHeight
                 boundsBehavior: Flickable.StopAtBounds
 
+                // The list is positioned against a row that scrolls. Rather than
+                // track it, close it — a dropdown that follows the content out
+                // from under the pointer is worse than one that just goes away.
+                onContentYChanged: root.closeSelect()
+
                 ColumnLayout {
                     id: column
 
@@ -500,12 +505,136 @@ Panel {
                         model: column.group.settings
 
                         delegate: SettingRow {
+                            id: settingRow
+
                             required property var modelData
 
                             Layout.fillWidth: true
                             spec: modelData
                             revision: root.revision
                             onChanged: root.revision++
+                            onSelectRequested: anchor => root.openSelect(settingRow, anchor)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- The select list ------------------------------------------------------
+    //
+    // One list for the whole panel rather than one per row, and it lives out
+    // here rather than inside the row that opened it. A row sits inside a
+    // clipping Flickable, so a popup drawn there is cut off the moment it
+    // extends past the visible area — which for a list that opens downward is
+    // most of the time. Declared last so it draws over everything.
+
+    property SettingRow selectRow: null
+    property Item selectAnchor: null
+    property real selectX: 0
+    property real selectY: 0
+    property real selectWidth: 0
+
+    function openSelect(row: SettingRow, anchor: Item): void {
+        // Clicking the field of an open list closes it, which is what a second
+        // click on a dropdown is supposed to do.
+        if (root.selectRow === row) {
+            root.closeSelect();
+            return;
+        }
+
+        const p = anchor.mapToItem(selectLayer, 0, 0);
+        const count = (row.spec.options ?? []).length;
+        const height = count * 32 + Appearance.padding.sm * 2;
+
+        root.selectWidth = anchor.width;
+        root.selectX = p.x;
+        // Downward normally, upward when there is no room — the panel is a fixed
+        // 620 tall and a list of five needs 176 of it, so the bottom rows would
+        // otherwise open into nothing.
+        root.selectY = p.y + anchor.height + 4 + height > selectLayer.height ? p.y - height - 4 : p.y + anchor.height + 4;
+        root.selectAnchor = anchor;
+        root.selectRow = row;
+    }
+
+    function closeSelect(): void {
+        root.selectRow = null;
+        root.selectAnchor = null;
+    }
+
+    // Nothing open survives the panel closing or the category changing, both of
+    // which leave the anchor somewhere the list is no longer pointing at.
+    onOpenChanged: if (!root.open) root.closeSelect()
+    onCategoryChanged: root.closeSelect()
+
+    Item {
+        id: selectLayer
+
+        anchors.fill: parent
+        visible: root.selectRow !== null
+
+        // Anywhere else closes it. Below the list, so a click on an option
+        // reaches the option.
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.closeSelect()
+        }
+
+        Rectangle {
+            x: root.selectX
+            y: root.selectY
+            width: root.selectWidth
+            implicitHeight: options.implicitHeight + Appearance.padding.sm * 2
+
+            radius: Appearance.rounding.small
+            color: Theme.layer(3)
+            border.width: 1
+            border.color: Theme.outlineVariant
+
+            ColumnLayout {
+                id: options
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 0
+
+                Repeater {
+                    model: root.selectRow?.spec?.options ?? []
+
+                    delegate: Rectangle {
+                        id: option
+
+                        required property var modelData
+
+                        readonly property bool active: String(root.selectRow?.value ?? "") === String(option.modelData)
+
+                        Layout.fillWidth: true
+                        implicitHeight: 32
+                        color: optionHover.containsMouse ? Theme.surfaceContainerHighest : "transparent"
+
+                        StyledText {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: Appearance.padding.md
+                            anchors.rightMargin: Appearance.padding.md
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: String(option.modelData)
+                            color: option.active ? Theme.accent : Theme.text
+                            font.pixelSize: Appearance.font.size.sm
+                            elide: Text.ElideRight
+                        }
+
+                        MouseArea {
+                            id: optionHover
+
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                root.selectRow.commit(option.modelData);
+                                root.closeSelect();
+                            }
                         }
                     }
                 }

@@ -50,6 +50,11 @@ Item {
 
     signal changed
 
+    // "Open a list of my options, anchored to this item." The list itself is the
+    // panel's, not this row's: a row lives inside a clipping Flickable, so a
+    // popup drawn here would be cut off at the first scroll boundary it crossed.
+    signal selectRequested(Item anchor)
+
     function commit(v: var): void {
         if (root.stateBacked)
             Persist[root.spec.key] = v;
@@ -136,6 +141,8 @@ Item {
                         return sliderControl;
                     case "choice":
                         return choiceControl;
+                    case "select":
+                        return selectControl;
                     case "apps":
                         return appsControl;
                     default:
@@ -389,6 +396,66 @@ Item {
                         if (pressed)
                             apply(mouse);
                     }
+                }
+            }
+        }
+    }
+
+    // A closed list, for when the options outgrow a row of pills. Same data as
+    // "choice" — the difference is only how many will fit.
+    Component {
+        id: selectControl
+
+        Item {
+            implicitHeight: 32
+
+            Rectangle {
+                id: selectField
+
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                implicitWidth: Math.min(parent.width, 260)
+                implicitHeight: 32
+                radius: Appearance.rounding.small
+                color: fieldHover.containsMouse ? Theme.surfaceContainerHigh : Theme.surfaceContainer
+                border.width: 1
+                border.color: Theme.outlineVariant
+
+                Behavior on color {
+                    enabled: Appearance.anim.enabled
+                    ColorAnimation {
+                        duration: Appearance.anim.fast
+                    }
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Appearance.padding.md
+                    anchors.rightMargin: Appearance.padding.sm
+                    spacing: Appearance.spacing.xs
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: String(root.value)
+                        color: Theme.text
+                        font.pixelSize: Appearance.font.size.sm
+                        elide: Text.ElideRight
+                    }
+
+                    Icon {
+                        text: "expand_more"
+                        color: Theme.textMuted
+                        size: Appearance.font.size.md
+                    }
+                }
+
+                MouseArea {
+                    id: selectFieldHover
+
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.selectRequested(selectField)
                 }
             }
         }
