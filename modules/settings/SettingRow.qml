@@ -417,7 +417,7 @@ Item {
                 implicitWidth: Math.min(parent.width, 260)
                 implicitHeight: 32
                 radius: Appearance.rounding.small
-                color: fieldHover.containsMouse ? Theme.surfaceContainerHigh : Theme.surfaceContainer
+                color: selectHover.containsMouse ? Theme.surfaceContainerHigh : Theme.surfaceContainer
                 border.width: 1
                 border.color: Theme.outlineVariant
 
@@ -450,7 +450,7 @@ Item {
                 }
 
                 MouseArea {
-                    id: selectFieldHover
+                    id: selectHover
 
                     anchors.fill: parent
                     hoverEnabled: true
