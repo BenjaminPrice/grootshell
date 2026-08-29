@@ -1,21 +1,17 @@
+![GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)
+
 # grootshell
 
 A [Quickshell](https://quickshell.outfoxxed.me/) desktop shell for Hyprland,
 written entirely in QML.
 
-It was built for `groot` — a headless NixOS box with no monitor, driven over
-[Moonlight](https://moonlight-stream.org/) — and that constraint shaped most of
-it. Every animated frame is a frame encoded and pushed over a network, so motion
-is short, polling is demand-driven, and anything that redraws without being
-looked at was removed. It works just as well on a machine you sit in front of;
+It was built for a headless NixOS box with no monitor, driven over
+[Moonlight](https://moonlight-stream.org/). Every animated frame is a frame encoded 
+and pushed over a network, so motion is short, polling is demand-driven, and 
+anything that redraws without being looked at was removed. 
+
+It works just as well on a machine you sit in front of;
 you simply get a shell that is stingier with the GPU than it needs to be.
-
-**No C++ plugin.** Everything here is QML against stock `quickshell`, which means
-it builds from a binary cache in minutes instead of compiling a Qt plugin from
-source. Configuration, system metrics, the colour scheme and the widgets are all
-QML or small shell-outs to ordinary userspace tools.
-
-![GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)
 
 ---
 
@@ -84,7 +80,7 @@ streaming.
 ### Fonts
 
 Bundled into a closed fontconfig by the Nix package; install them yourself
-otherwise. Only the first is load-bearing.
+otherwise. Only the first is truly required.
 
 - **Material Symbols Rounded** — all iconography. Qt substitutes silently when a
   font is missing, so its absence shows up as boxes rather than an error; the
@@ -116,8 +112,7 @@ No API keys anywhere. The weather comes from
 The two helpers the shell shells out to — the theme generator and the calendar
 fetcher — live in `scripts/` here. The shell prefers a packaged `grootshell-theme`
 or `grootshell-calendar` on `PATH` when there is one, because the Nix wrappers
-bring their own dependencies, and otherwise runs the bundled script directly. So
-neither feature needs Nix; they need the tools in the table above.
+bring their own dependencies, and otherwise runs the bundled script directly.
 
 ---
 
@@ -214,15 +209,7 @@ grootshell-ipc show                     # every target and function, live
 ```
 
 **[KEYBINDS.md](KEYBINDS.md)** is the full version: all fifteen IPC targets,
-a set of default binds to paste into `hyprland.conf`, how to keep the in-shell
-cheatsheet from drifting out of sync with them, what does and does not carry
-across to Sway and Niri, and the four environment problems behind essentially
-every bind that silently does nothing.
-
-To run it as a user service, the module's unit is a reasonable template: bind it
-to `graphical-session.target`, put your profile on its `PATH` so launched
-applications resolve, and set `KillMode=process` so a restart does not take the
-applications with it.
+a set of default binds to paste into `hyprland.conf`.
 
 ## Configuration
 
@@ -247,6 +234,50 @@ Runtime state — the current wallpaper, the light/dark override — lives separ
 in `$XDG_STATE_HOME/quickshell/by-shell/grootshell/state.json`, deliberately: the
 config file is read and never written, so a later change to a default is not
 silently frozen by something the shell wrote.
+
+### Calendars
+
+The agenda reads iCal feeds, one per line, `name|url`:
+
+```
+Work|https://calendar.google.com/calendar/ical/…/basic.ics
+Family|https://calendar.google.com/calendar/ical/…/basic.ics
+```
+
+In Google Calendar that URL is **Settings → your calendar → Integrate calendar →
+"Secret address in iCal format"**. Any iCal feed works; Google is just the common
+case. Drop the `name|` and the feed's own name is used. One feed failing does not
+lose the others — the error is reported against that calendar alone.
+
+Read-only, and no OAuth: no consent flow, no refresh token, no client
+registration to keep alive. The trade is that the URL *is* the credential —
+anyone holding it can read the calendar, with no account and no revocation short
+of regenerating the link. Treat it accordingly.
+
+**Without Nix**, put those lines in `~/.config/grootshell/calendars`. 
+
+**With Nix**, that means it must not be an option value — those land in the
+world-readable Nix store. Put it through sops and point the module at the
+decrypted path:
+
+```nix
+sops.secrets."calendar/ical-urls".owner = "alice";
+programs.grootshell.calendarUrlFile =
+  config.sops.secrets."calendar/ical-urls".path;
+```
+
+`calendarUrlFile` overrides the config-directory location, which is why the
+secret can live somewhere unguessable under `/run`.
+
+Colours are assigned shell-side, keyed by the name you gave the feed — a colour
+is not sensitive, and changing one should not mean decrypting a file:
+
+```jsonc
+{ "services": { "calendarColours": { "Work": "#7aa2f7", "Family": "#9ece6a" } } }
+```
+
+Needs `python3` with `icalendar` and `recurring-ical-events`; the Nix package
+brings both.
 
 ---
 
@@ -281,15 +312,7 @@ scripts/             theme generator, calendar fetcher, ipc wrapper, qml-audit
 nix flake check      # parses every QML file, then audits it
 ```
 
-`scripts/qml-audit.py` catches mistakes that **parse cleanly and fail at load** —
-which matters because Quickshell exits when its config fails, and on a headless
-host that is a black screen with no console. Every rule in it is there because it
-shipped: a `Behavior` on a read-only property, a file named after a built-in
-type, a duplicate `id`, a type used without importing its module, a property
-named with a reserved word, a delegate shadowing a required property it already
-inherits, an alias reaching into a grouped property, a component redeclaring a
-property `Item` already has, and a `Behavior` on a property whose name starts
-with `on` — which segfaults the QML engine outright.
+`scripts/qml-audit.py` catches mistakes that **parse cleanly and fail at load**.
 
 Run it before pushing. It is faster than finding out from a crash loop.
 
