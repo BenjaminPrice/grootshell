@@ -197,25 +197,41 @@ Item {
                 spacing: Appearance.spacing.sm
 
                 StyledText {
-                    text: "Next 12 hours"
+                    text: `Next ${hours.slots} hours`
                     color: Theme.textMuted
                     font.pixelSize: Appearance.font.size.xs
                 }
 
                 ListView {
+                    id: hours
+
                     Layout.fillWidth: true
                     Layout.preferredHeight: 96
                     orientation: ListView.Horizontal
                     clip: true
-                    spacing: Appearance.spacing.xs
-                    model: Weather.upcomingHours(12)
+                    spacing: 0
+
+                    // As many whole hours as fit, sized to divide the width
+                    // exactly.
+                    //
+                    // A fixed cell width and a fixed count cannot both be right:
+                    // this shell is driven over a stream at whatever resolution
+                    // the client asked for, and at 1920 a twelve-cell strip ran
+                    // off the end and left a half-drawn hour against the edge —
+                    // which reads as a rendering fault rather than as "there is
+                    // more". Deriving the count from the space means the strip
+                    // is always flush.
+                    readonly property int slots: Math.max(1, Math.floor(width / 64))
+                    readonly property real cell: width / hours.slots
+
+                    model: Weather.upcomingHours(hours.slots)
 
                     delegate: ColumnLayout {
                         id: hourCell
 
                         required property var modelData
 
-                        width: 62
+                        width: hours.cell
                         spacing: 2
 
                         StyledText {
