@@ -121,7 +121,7 @@ The flake ships a NixOS module, so this is the whole of it:
 
 ```nix
 {
-  inputs.grootshell.url = "github:BenjaminPrice/quickshell-dots";
+  inputs.grootshell.url = "github:BenjaminPrice/grootshell";
 
   # in your configuration.nix / a module
   imports = [ inputs.grootshell.nixosModules.default ];
@@ -171,8 +171,8 @@ this shell.
 Nix is a convenience here, not a requirement. Point Quickshell at a checkout:
 
 ```bash
-git clone https://github.com/BenjaminPrice/quickshell-dots
-qs -p quickshell-dots
+git clone https://github.com/BenjaminPrice/grootshell
+qs -p grootshell
 ```
 
 You are responsible for the fonts and the tools in the table above being on
@@ -193,6 +193,23 @@ Two files to know about:
   the NixOS module to generate it.
 - `~/.config/grootshell/calendars` — one `name|url` per line, each being a
   calendar's "secret address in iCal format".
+
+### Binding keys
+
+The shell binds nothing itself — your compositor does, and every panel is
+reachable over IPC:
+
+```bash
+grootshell-ipc call island toggle       # the dashboard
+grootshell-ipc call launcher toggle
+grootshell-ipc show                     # every target and function, live
+```
+
+**[KEYBINDS.md](KEYBINDS.md)** is the full version: all fourteen IPC targets,
+a set of default binds to paste into `hyprland.conf`, how to keep the in-shell
+cheatsheet from drifting out of sync with them, what does and does not carry
+across to Sway and Niri, and the four environment problems behind essentially
+every bind that silently does nothing.
 
 To run it as a user service, the module's unit is a reasonable template: bind it
 to `graphical-session.target`, put your profile on its `PATH` so launched

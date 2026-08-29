@@ -84,9 +84,19 @@ Singleton {
         id: status
         running: true
         command: ["bash", "-c", `
-            eth=$(nmcli -t -f TYPE,STATE,CONNECTION device status | awk -F: '$1=="ethernet" && $2=="connected"{print $3; exit}')
-            wifi=$(nmcli -t -f ACTIVE,SSID,SIGNAL device wifi list --rescan no 2>/dev/null | awk -F: '$1=="yes"{print $2":"$3; exit}')
             dev=$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2=="wifi"{print $1; exit}')
+            eth=$(nmcli -t -f TYPE,STATE,CONNECTION device status | awk -F: '$1=="ethernet" && $2 ~ /^connected/{print $3; exit}')
+            # NetworkManager is not always the one holding the wire. A machine
+            # using systemd-networkd for a static wired address reports that
+            # interface as "unmanaged", and asking only nmcli would call a
+            # plugged-in, routing, perfectly online machine "offline". If nmcli
+            # has no ethernet, believe the routing table instead — unless the
+            # default route is over the wifi device, which is not ethernet.
+            if [ -z "$eth" ]; then
+                rdev=$(ip route show default 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "dev") {print $(i + 1); exit}}')
+                [ -n "$rdev" ] && [ "$rdev" != "$dev" ] && eth="$rdev"
+            fi
+            wifi=$(nmcli -t -f ACTIVE,SSID,SIGNAL device wifi list --rescan no 2>/dev/null | awk -F: '$1=="yes"{print $2":"$3; exit}')
             enabled=$(nmcli -t radio wifi 2>/dev/null)
             # Saved wireless profiles, one per line, after the counts above.
             printf '%s\\n%s\\n%s\\n%s\\n' "$eth" "$wifi" "$dev" "$enabled"

@@ -189,7 +189,7 @@ symlinkJoin {
 
   meta = {
     description = "A Quickshell desktop shell for groot";
-    homepage = "https://github.com/BenjaminPrice/quickshell-dots";
+    homepage = "https://github.com/BenjaminPrice/grootshell";
     license = lib.licenses.gpl3Only;
     platforms = lib.platforms.linux;
     mainProgram = "grootshell";

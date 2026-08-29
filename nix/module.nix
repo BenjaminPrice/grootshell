@@ -64,7 +64,7 @@ in
     devPath = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
-      example = "/home/alice/dev/quickshell-dots";
+      example = "/home/alice/dev/grootshell";
       description = ''
         Run the QML from a writable checkout instead of the store.
 
