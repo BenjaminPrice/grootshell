@@ -49,6 +49,15 @@ Each rule here exists because it shipped:
                         it at load. Shipped once, from a delegate being wrapped
                         in a new item that kept the inner one's id.
 
+  duplicate-handler     Two handlers for the same signal on the ROOT object of a
+                        file. QML allows exactly one per signal — a second is
+                        not an addition, it is "Property value set multiple
+                        times" at LOAD time, which restart-loops the shell.
+                        Shipped once: a panel that already had an onOpenChanged
+                        for one job gained a second for another. Root scope only,
+                        because two objects in a file may each legitimately
+                        handle onClicked.
+
   reserved-word         A property named with a word QML reserves. Parses, then
                         fails at load with "Reserved keyword ... cannot be used
                         as a QML identifier". Shipped once, as `transient`.
@@ -156,6 +165,9 @@ REQUIRED = re.compile(r"required\s+property\s+[\w.<>]+\s+(\w+)")
 # give it. Anchored on four spaces, which is what qmlformat produces and
 # `nix flake check` enforces.
 REQUIRED_ROOT = re.compile(r"^    required\s+property\s+[\w.<>]+\s+(\w+)", re.M)
+# Anchored to four spaces: the root object's own scope. Deeper handlers belong to
+# nested objects, where repeating a signal name is not merely legal but usual.
+HANDLER_ROOT = re.compile(r"^    (on[A-Z]\w*)\s*:", re.M)
 DELEGATE = re.compile(r"delegate:\s*([A-Z]\w*)\s*\{")
 BEHAVIOR = re.compile(r"Behavior\s+on\s+([\w.]+)")
 DEEP_ALIAS = re.compile(r"property\s+alias\s+\w+\s*:\s*(\w+\.\w+\.\w+)")
@@ -237,6 +249,22 @@ def audit(path: Path, required: dict[str, set[str]] | None = None) -> list[tuple
                         "redeclaring it shadows the property that type reads",
                     )
                 )
+
+    seen_handlers: dict[str, int] = {}
+    for match in HANDLER_ROOT.finditer(text):
+        name = match.group(1)
+        line = line_of(text, match.start())
+        if name in seen_handlers:
+            findings.append(
+                (
+                    line,
+                    "duplicate-handler",
+                    f"{name} is already handled on line {seen_handlers[name]}; "
+                    "QML allows one handler per signal and rejects the file at load",
+                )
+            )
+        else:
+            seen_handlers[name] = line
 
     seen_ids: dict[str, int] = {}
     for match in ID_LINE.finditer(text):
