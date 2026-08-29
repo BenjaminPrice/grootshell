@@ -235,10 +235,13 @@ Item {
                         anchors.centerIn: parent
                         visible: !slot.occupied
                         text: root.numeralFor(slot.wsId)
-                        // Dimmer than a running workspace's icons: this is the
-                        // absence of content, and it should not compete with the
-                        // slots that have some.
-                        color: slot.active ? Theme.onAccentContainer : Theme.outlineVariant
+                        // The clock's colour, matching the desktop switcher's
+                        // numerals. These were outlineVariant on the reasoning
+                        // that an empty slot is the absence of content and
+                        // should not compete with the slots that have some —
+                        // but at that weight they read as disabled rather than
+                        // as empty, and the shell's other numerals do not.
+                        color: slot.active ? Theme.onAccentContainer : Theme.text
                         font.pixelSize: Appearance.font.size.sm
 
                         Behavior on color {
