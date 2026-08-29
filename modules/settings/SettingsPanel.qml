@@ -239,7 +239,7 @@ Panel {
                 {
                     key: "services.mediaApps",
                     label: "Players",
-                    detail: "Offered when nothing is playing. The first is the default. Only installed apps are listed.",
+                    detail: "Offered when nothing is playing, up to three. The first is the default. Only installed apps are listed.",
                     type: "apps"
                 },
                 {

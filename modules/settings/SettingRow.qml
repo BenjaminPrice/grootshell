@@ -454,15 +454,17 @@ Item {
         id: appsControl
 
         ColumnLayout {
+            id: apps
+
             spacing: Appearance.spacing.xs
 
-            readonly property var chosen: root.value ?? []
+            readonly property int chosen: SettingsCatalogue.chosenCount(root.value)
+            readonly property bool full: apps.chosen >= SettingsCatalogue.maxMediaApps
 
-            function isOn(id: string): bool {
-                for (const a of parent.chosen ?? [])
-                    if ((a.id ?? a.label) === id)
-                        return true;
-                return false;
+            StyledText {
+                text: `${apps.chosen} of ${SettingsCatalogue.maxMediaApps} chosen` + (apps.full ? " — deselect one to swap" : "")
+                color: apps.full ? Theme.textMuted : Theme.textSecondary
+                font.pixelSize: Appearance.font.size.xs
             }
 
             Repeater {
@@ -479,7 +481,12 @@ Item {
                         return false;
                     }
 
+                    // Dimmed once the cap is reached, so the ones you cannot add
+                    // look unavailable rather than merely unresponsive.
+                    readonly property bool available: appRow.on || !apps.full
+
                     spacing: Appearance.spacing.sm
+                    opacity: appRow.available ? 1 : 0.4
 
                     Rectangle {
                         implicitWidth: 18
@@ -510,6 +517,15 @@ Item {
                         font.pixelSize: Appearance.font.size.xs
                     }
 
+                    // Music, video or audiobooks. Said rather than filtered on:
+                    // two video players for local files and for streaming is a
+                    // perfectly sensible pair, and so is one of each.
+                    StyledText {
+                        text: appRow.modelData.kind ?? ""
+                        color: Theme.textMuted
+                        font.pixelSize: Appearance.font.size.xs
+                    }
+
                     // The first one enabled is the one Space reaches and the one
                     // the empty state offers first, so it is worth saying which.
                     StyledText {
@@ -525,6 +541,7 @@ Item {
 
                     MouseArea {
                         anchors.fill: parent
+                        enabled: appRow.available
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.commit(SettingsCatalogue.toggleMediaApp(root.value ?? [], appRow.modelData.id))
