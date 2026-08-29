@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs.config
 import qs.services
 import qs.components
@@ -11,14 +12,24 @@ import qs.components
 // of a screenful of hand-placed sliders. Adding a setting is one line in
 // SettingsPanel's schema.
 //
+// ## Two stores
+//
+// Most settings are CONFIG — they live in shell.json, they have a shipped
+// default, and not setting one is meaningfully different from setting it to the
+// same value. A few are STATE: the light/dark override is something you chose at
+// runtime, it has no default to fall back to, and it lives in state.json beside
+// the current wallpaper. `store: "state"` switches a row over; see
+// services/Persist.qml for why the two files are separate.
+//
 // ## The override marker
 //
-// Every row can say whether the value is yours or the shipped default, and reset
-// it if it is yours. That is not decoration — it is the visible half of how
+// A config row can say whether the value is yours or the shipped default, and
+// reset it if it is yours. That is not decoration — it is the visible half of how
 // settings are stored. Keys you have not set are ABSENT from shell.json and
 // follow the default forever after, including when the default improves; a panel
 // that could only ever write values would quietly opt you out of that on first
-// use. See services/Settings.qml.
+// use. State rows have no such marker, because for them there is no default to
+// be different from.
 
 Item {
     id: root
@@ -30,15 +41,20 @@ Item {
     // reading the file, and only a write can change the answer.
     property int revision: 0
 
-    readonly property var value: Settings.resolve(root.spec.key)
-    readonly property bool overridden: root.revision >= 0 && Settings.has(root.spec.key)
+    readonly property bool stateBacked: (root.spec.store ?? "") === "state"
+
+    readonly property var value: root.stateBacked ? Persist[root.spec.key] : Settings.resolve(root.spec.key)
+    readonly property bool overridden: !root.stateBacked && root.revision >= 0 && Settings.has(root.spec.key)
 
     implicitHeight: Math.max(control.implicitHeight, label.implicitHeight, 36)
 
     signal changed
 
     function commit(v: var): void {
-        Settings.set(root.spec.key, v);
+        if (root.stateBacked)
+            Persist[root.spec.key] = v;
+        else
+            Settings.set(root.spec.key, v);
         root.changed();
     }
 
@@ -62,8 +78,9 @@ Item {
             // squeezed the control beside it down to nothing. The font-scale
             // slider collapsed to a handle jammed against its own readout while
             // the rows below it, which had no detail, were fine.
-            Layout.preferredWidth: 260
-            Layout.maximumWidth: 260
+            Layout.preferredWidth: 240
+            Layout.maximumWidth: 240
+            Layout.alignment: Qt.AlignVCenter
             spacing: 0
 
             RowLayout {
@@ -102,6 +119,7 @@ Item {
             id: control
 
             Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
             implicitHeight: loader.implicitHeight
 
             Loader {
@@ -118,6 +136,8 @@ Item {
                         return sliderControl;
                     case "choice":
                         return choiceControl;
+                    case "apps":
+                        return appsControl;
                     default:
                         return textControl;
                     }
@@ -128,6 +148,7 @@ Item {
         // Only where there is something to undo. A permanently visible reset
         // that is usually a no-op teaches you to ignore it.
         Icon {
+            Layout.alignment: Qt.AlignVCenter
             text: "restart_alt"
             color: resetHover.containsMouse ? Theme.accent : Theme.textMuted
             size: Appearance.font.size.md
@@ -201,7 +222,10 @@ Item {
         Item {
             id: slider
 
-            implicitHeight: 28
+            // Taller than the other controls, because the range labels sit above
+            // the groove rather than beside it — beside would cost width the
+            // groove itself needs, and the groove is the thing being aimed at.
+            implicitHeight: 40
 
             readonly property real min: root.spec.min ?? 0
             readonly property real max: root.spec.max ?? 100
@@ -289,12 +313,41 @@ Item {
                 }
             }
 
+            // The ends of the range, above the ends of the track.
+            //
+            // Without them a slider is a position with no scale: you can see
+            // that the handle is a third of the way along and have no idea a
+            // third of what. Small and muted, because they are a reference you
+            // glance at once rather than part of the value.
+            StyledText {
+                anchors.left: groove.left
+                anchors.bottom: groove.top
+                anchors.bottomMargin: 4
+                text: String(slider.min)
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
+                mono: true
+            }
+
+            StyledText {
+                anchors.right: groove.right
+                anchors.bottom: groove.top
+                anchors.bottomMargin: 4
+                text: String(slider.max)
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
+                mono: true
+            }
+
             Rectangle {
                 id: groove
+
                 anchors.left: parent.left
                 anchors.right: readout.left
                 anchors.rightMargin: Appearance.spacing.md
+                // Below centre, to leave room for the range labels above.
                 anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: 6
                 implicitHeight: 4
                 radius: 2
                 color: Theme.surfaceContainerHighest
@@ -383,6 +436,107 @@ Item {
 
             Item {
                 Layout.fillWidth: true
+            }
+        }
+    }
+
+    // Media players: a catalogue, filtered to what is actually installed.
+    //
+    // Toggles rather than free text because the value is a list of objects — a
+    // label, an icon, the desktop-entry names to try and a fallback command —
+    // and asking someone to write that by hand in a settings panel is asking
+    // them to edit JSON with extra steps. The catalogue carries the awkward
+    // parts; the panel only has to ask which ones you want.
+    //
+    // Anything not installed is not offered, because a button that launches
+    // nothing is worse than no button.
+    Component {
+        id: appsControl
+
+        ColumnLayout {
+            spacing: Appearance.spacing.xs
+
+            readonly property var chosen: root.value ?? []
+
+            function isOn(id: string): bool {
+                for (const a of parent.chosen ?? [])
+                    if ((a.id ?? a.label) === id)
+                        return true;
+                return false;
+            }
+
+            Repeater {
+                model: SettingsCatalogue.installedMediaApps()
+
+                delegate: RowLayout {
+                    id: appRow
+                    required property var modelData
+
+                    readonly property bool on: {
+                        for (const a of root.value ?? [])
+                            if ((a.id ?? "") === appRow.modelData.id)
+                                return true;
+                        return false;
+                    }
+
+                    spacing: Appearance.spacing.sm
+
+                    Rectangle {
+                        implicitWidth: 18
+                        implicitHeight: 18
+                        radius: Appearance.rounding.small
+                        color: appRow.on ? Theme.accent : "transparent"
+                        border.width: appRow.on ? 0 : 1
+                        border.color: Theme.outlineVariant
+
+                        Icon {
+                            anchors.centerIn: parent
+                            visible: appRow.on
+                            text: "check"
+                            color: Theme.onAccent
+                            size: Appearance.font.size.xs
+                        }
+                    }
+
+                    Icon {
+                        text: appRow.modelData.icon
+                        color: Theme.textSecondary
+                        size: Appearance.font.size.md
+                    }
+
+                    StyledText {
+                        text: appRow.modelData.label
+                        color: appRow.on ? Theme.text : Theme.textSecondary
+                        font.pixelSize: Appearance.font.size.xs
+                    }
+
+                    // The first one enabled is the one Space reaches and the one
+                    // the empty state offers first, so it is worth saying which.
+                    StyledText {
+                        visible: appRow.on && ((root.value ?? [])[0]?.id ?? "") === appRow.modelData.id
+                        text: "default"
+                        color: Theme.accent
+                        font.pixelSize: Appearance.font.size.xs
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.commit(SettingsCatalogue.toggleMediaApp(root.value ?? [], appRow.modelData.id))
+                    }
+                }
+            }
+
+            StyledText {
+                visible: SettingsCatalogue.installedMediaApps().length === 0
+                text: "No known media players found on this machine"
+                color: Theme.textMuted
+                font.pixelSize: Appearance.font.size.xs
             }
         }
     }

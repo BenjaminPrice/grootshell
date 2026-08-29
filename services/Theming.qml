@@ -40,14 +40,14 @@ Singleton {
         root.generate(Wallpapers.current);
     }
 
-    // Cycles auto -> light -> dark -> auto and regenerates. Bound to a key in
-    // the wallpaper switcher, because that is where you are standing when you
-    // notice the mode is wrong.
+    // Cycles auto -> light -> dark -> auto. Bound to a key in the wallpaper
+    // grid, because that is where you are standing when you notice the mode is
+    // wrong. Regenerating is not done here — see onThemeModeChanged below, which
+    // does it for whoever changed the mode.
     function cycleMode(): void {
         const order = ["auto", "light", "dark"];
         const next = order[(order.indexOf(Persist.themeMode) + 1) % order.length];
         Persist.themeMode = next;
-        root.regenerate();
     }
 
     // Prefer a `grootshell-theme` on PATH, and fall back to the script this repo
@@ -76,11 +76,18 @@ Singleton {
     }
 
     // A mode change has to regenerate the same image it just generated, so the
-    // dedupe has to be cleared rather than worked around.
+    // dedupe has to be cleared rather than worked around — and then actually
+    // regenerate.
+    //
+    // Here rather than in cycleMode, because the mode has more than one place
+    // that sets it now: the M key in the wallpaper grid and the settings panel.
+    // Anything that changes the mode wants the same thing to happen next, so it
+    // happens once, where the change is observed.
     Connections {
         target: Persist
         function onThemeModeChanged(): void {
             root.lastGenerated = "";
+            root.generate(Wallpapers.current);
         }
     }
 

@@ -41,6 +41,12 @@ Panel {
     // those checks.
     property int revision: 0
 
+    // Which category is showing. A rail rather than one long scroll: there are
+    // enough settings now that scrolling past four groups to reach the fifth is
+    // its own small chore, and the categories are genuinely separate concerns
+    // rather than arbitrary slices of one list.
+    property int category: 0
+
     readonly property var groups: [
         {
             title: "Scale",
@@ -214,6 +220,38 @@ Panel {
             ]
         },
         {
+            title: "Theme",
+            detail: "Colours are generated from the wallpaper by matugen. Pick a wallpaper in the dashboard's Wallpaper tab; this is how light or dark is decided.",
+            settings: [
+                {
+                    key: "themeMode",
+                    store: "state",
+                    label: "Light or dark",
+                    detail: "auto reads the wallpaper's own brightness, which is right nearly always. The other two are for the images it reads wrong.",
+                    type: "choice",
+                    options: ["auto", "light", "dark"]
+                }
+            ]
+        },
+        {
+            title: "Media",
+            settings: [
+                {
+                    key: "services.mediaApps",
+                    label: "Players",
+                    detail: "Offered when nothing is playing. The first is the default. Only installed apps are listed.",
+                    type: "apps"
+                },
+                {
+                    key: "services.waveformColour",
+                    label: "Spectrum ring",
+                    detail: "A Theme role, so it still follows the wallpaper",
+                    type: "choice",
+                    options: ["accent", "text", "success", "warning", "error"]
+                }
+            ]
+        },
+        {
             title: "Weather",
             detail: "Forecasts come from Open-Meteo, which needs no account.",
             settings: [
@@ -304,6 +342,23 @@ Panel {
                 font.pixelSize: Appearance.font.size.xs
                 mono: true
             }
+
+            // Escape closes it too — this is for when the pointer is already
+            // here, which for a panel full of sliders is most of the time.
+            Icon {
+                text: "close"
+                color: closeHover.containsMouse ? Theme.error : Theme.textSecondary
+                size: Appearance.font.size.lg
+
+                MouseArea {
+                    id: closeHover
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: ShellState.close("settings")
+                }
+            }
         }
 
         StyledText {
@@ -314,64 +369,100 @@ Panel {
             wrapMode: Text.WordWrap
         }
 
-        // --- The settings ---------------------------------------------------
-        Flickable {
+        // --- Rail and settings ----------------------------------------------
+        RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            clip: true
-            contentHeight: column.implicitHeight
-            boundsBehavior: Flickable.StopAtBounds
+            spacing: Appearance.spacing.lg
 
             ColumnLayout {
-                id: column
-                width: parent.width
-                spacing: Appearance.spacing.lg
+                Layout.preferredWidth: 150
+                Layout.alignment: Qt.AlignTop
+                spacing: Appearance.spacing.xs
 
                 Repeater {
                     model: root.groups
 
-                    delegate: ColumnLayout {
-                        id: group
+                    delegate: Rectangle {
+                        id: tab
                         required property var modelData
+                        required property int index
+
+                        readonly property bool active: root.category === tab.index
 
                         Layout.fillWidth: true
-                        spacing: Appearance.spacing.xs
+                        implicitHeight: 32
+                        radius: Appearance.rounding.full
+                        color: tab.active ? Theme.accentContainer : tabHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
 
-                        StyledText {
-                            Layout.topMargin: Appearance.spacing.sm
-                            text: group.modelData.title
-                            color: Theme.accent
-                            font.pixelSize: Appearance.font.size.sm
-                        }
-
-                        StyledText {
-                            Layout.fillWidth: true
-                            visible: (group.modelData.detail ?? "") !== ""
-                            text: group.modelData.detail ?? ""
-                            color: Theme.textMuted
-                            font.pixelSize: Appearance.font.size.xs
-                            wrapMode: Text.WordWrap
-                        }
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.topMargin: Appearance.spacing.xs
-                            Layout.bottomMargin: Appearance.spacing.xs
-                            implicitHeight: 1
-                            color: Theme.outlineVariant
-                        }
-
-                        Repeater {
-                            model: group.modelData.settings
-
-                            delegate: SettingRow {
-                                required property var modelData
-
-                                Layout.fillWidth: true
-                                spec: modelData
-                                revision: root.revision
-                                onChanged: root.revision++
+                        Behavior on color {
+                            enabled: Appearance.anim.enabled
+                            ColorAnimation {
+                                duration: Appearance.anim.fast
                             }
+                        }
+
+                        StyledText {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Appearance.padding.md
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: tab.modelData.title
+                            color: tab.active ? Theme.onAccentContainer : Theme.textSecondary
+                            font.pixelSize: Appearance.font.size.xs
+                        }
+
+                        MouseArea {
+                            id: tabHover
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.category = tab.index
+                        }
+                    }
+                }
+            }
+
+            Flickable {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentHeight: column.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+
+                ColumnLayout {
+                    id: column
+
+                    readonly property var group: root.groups[root.category] ?? root.groups[0]
+
+                    width: parent.width
+                    spacing: Appearance.spacing.xs
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        visible: (column.group.detail ?? "") !== ""
+                        text: column.group.detail ?? ""
+                        color: Theme.textMuted
+                        font.pixelSize: Appearance.font.size.xs
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: Appearance.spacing.xs
+                        implicitHeight: 1
+                        color: Theme.outlineVariant
+                    }
+
+                    Repeater {
+                        model: column.group.settings
+
+                        delegate: SettingRow {
+                            required property var modelData
+
+                            Layout.fillWidth: true
+                            spec: modelData
+                            revision: root.revision
+                            onChanged: root.revision++
                         }
                     }
                 }

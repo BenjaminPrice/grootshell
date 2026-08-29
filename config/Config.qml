@@ -225,6 +225,15 @@ Singleton {
                 // should not mean decrypting a file.
                 //   { "Work": "#7aa2f7", "Family": "#9ece6a" }
                 property var calendarColours: ({})
+
+                // Which Theme role the media tab's spectrum ring is drawn in.
+                //
+                // A role name rather than a colour, so whatever you pick still
+                // follows the wallpaper — the point of the ring is that it
+                // belongs to the artwork it surrounds, and a fixed hex would be
+                // the one thing on that panel ignoring the scheme. "accent" is
+                // the automatic answer and what it has always been.
+                property string waveformColour: "accent"
             }
         }
     }

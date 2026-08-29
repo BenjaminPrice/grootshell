@@ -196,7 +196,10 @@ Item {
                 maxLength: disc.ringMax
                 minLength: Math.max(4, disc.span * 0.026)
                 barWidth: Math.max(3, disc.span * 0.018)
-                color: Theme.accent
+                // A named Theme role, so it still follows the wallpaper. An
+                // unknown name falls back to the accent rather than to a broken
+                // colour, since this is user input.
+                color: Theme[Config.services.waveformColour] ?? Theme.accent
 
                 // Dimmed rather than hidden while paused. The ring is part of
                 // the composition — the artwork looks unfinished without it —
