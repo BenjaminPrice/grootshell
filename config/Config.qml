@@ -66,7 +66,6 @@ Singleton {
                 // does not raise this, so bump both together if you want a
                 // bigger bar rather than a cramped one.
                 property int height: 54
-                property bool showOnHover: false
                 // Workspaces 1-5 are the desktop; 10 is where games live (see
                 // groot-mode in the nixos repo). Showing 10 in the strip would
                 // invite clicking into it mid-session, which is exactly what the
@@ -133,9 +132,10 @@ Singleton {
             }
 
             component Island: JsonObject {
+                // Which tab it opens on. There is no width or height here: the
+                // island sizes itself per tab, so one pair of numbers could only
+                // ever be wrong for four of the five.
                 property string defaultTab: "dashboard"
-                property int width: 520
-                property int height: 360
             }
 
             component Launcher: JsonObject {
@@ -150,7 +150,6 @@ Singleton {
             component Notifications: JsonObject {
                 property int expireTimeout: 5000
                 property int maxVisible: 4
-                property bool showOnLeft: false
             }
 
             component Osd: JsonObject {
@@ -195,8 +194,6 @@ Singleton {
                 // userspace tools — so these are a real cost, paid in encoded
                 // frames as well as CPU. Slower than a local desktop would use.
                 property int metricsInterval: 3000
-                // Only polled while the performance tab is actually visible.
-                property int sensorsInterval: 5000
                 // Substrings matched against an MPRIS player's Identity, in
                 // order, first hit wins. A list rather than one name because the
                 // YouTube Music desktop app was renamed — th-ch/youtube-music is
