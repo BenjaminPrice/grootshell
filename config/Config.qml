@@ -202,19 +202,29 @@ Singleton {
                 // `names` are tried against the desktop entry database first, so
                 // the app starts with the environment its packager intended;
                 // `command` is the fallback for anything with no entry to find.
+                // Entries carry an `id` matching services/SettingsCatalogue.qml.
+                //
+                // The settings panel identifies a chosen app by that id, so a
+                // default without one is a default the panel cannot see: it read
+                // "0 of 3 chosen" while two were plainly configured, and ticking
+                // either would have replaced rather than recognised it.
                 property var mediaApps: [
                     {
+                        id: "youtube-music",
                         label: "YouTube Music",
+                        kind: "music",
                         icon: "music_note",
-                        names: ["pear-desktop", "YouTube Music"],
+                        names: ["pear-desktop", "YouTube Music", "com.github.th-ch.youtube-music"],
                         command: ["pear-desktop"]
                     },
                     {
+                        id: "tsukimi",
                         label: "Tsukimi",
+                        kind: "video",
                         icon: "movie",
-                        names: ["tsukimi", "moe.tsuna.tsukimi"],
                         // A Flatpak, so there is no bare binary to fall back to.
-                        command: ["flatpak", "run", "moe.tsuna.tsukimi"]
+                        command: ["flatpak", "run", "moe.tsuna.tsukimi"],
+                        names: ["tsukimi", "moe.tsuna.tsukimi"]
                     }
                 ]
 
