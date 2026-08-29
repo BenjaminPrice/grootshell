@@ -168,6 +168,23 @@ Singleton {
         return true;
     }
 
+    // The value in EFFECT for a dotted key — the override if there is one, the
+    // shipped default otherwise. Read straight off Config rather than out of the
+    // file, which is the difference between "what is set" and "what is in use".
+    //
+    // Reactive, despite being a function: Qt tracks the property reads that
+    // happen while a binding evaluates, including inside a call, so a row bound
+    // to this updates when the config file reloads.
+    function resolve(key: string): var {
+        let node = Config;
+        for (const p of key.split(".").filter(p => p !== "")) {
+            if (node === undefined || node === null)
+                return undefined;
+            node = node[p];
+        }
+        return node;
+    }
+
     // Whether a key currently has an override, for a panel that wants to show
     // which settings differ from the defaults.
     function has(key: string): bool {

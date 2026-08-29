@@ -136,6 +136,11 @@ Singleton {
             description: "Stay where you are"
         },
         {
+            category: "Settings",
+            keys: ["Escape"],
+            description: "Close — changes are written as you make them"
+        },
+        {
             category: "Wallpaper",
             keys: ["Arrows"],
             description: "Move through the grid — applies after a short pause"

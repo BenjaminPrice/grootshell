@@ -146,6 +146,16 @@ INLINE_COMPONENT = re.compile(r"^\s*component\s+(\w+)\s*:", re.M)
 # Excludes `on Foo {` and property bindings, which never start a line this way.
 OBJECT_DECL = re.compile(r"^\s*([A-Z]\w*)\s*\{", re.M)
 REQUIRED = re.compile(r"required\s+property\s+[\w.<>]+\s+(\w+)")
+# The same, but only at a file's ROOT indentation.
+#
+# What a type "requires" is what a consumer of it has to fill, and that is only
+# the root-level declarations. A `required property var modelData` nested twenty
+# spaces deep inside a Component's own Repeater delegate belongs to that
+# delegate, not to the type — reading it as the type's meant every delegate of
+# that type was reported for declaring the modelData a Repeater is obliged to
+# give it. Anchored on four spaces, which is what qmlformat produces and
+# `nix flake check` enforces.
+REQUIRED_ROOT = re.compile(r"^    required\s+property\s+[\w.<>]+\s+(\w+)", re.M)
 DELEGATE = re.compile(r"delegate:\s*([A-Z]\w*)\s*\{")
 BEHAVIOR = re.compile(r"Behavior\s+on\s+([\w.]+)")
 DEEP_ALIAS = re.compile(r"property\s+alias\s+\w+\s*:\s*(\w+\.\w+\.\w+)")
@@ -203,7 +213,7 @@ def required_by_type(files: list[Path]) -> dict[str, set[str]]:
     """Map each local component name to the required properties it declares."""
     out: dict[str, set[str]] = {}
     for path in files:
-        out[path.stem] = set(REQUIRED.findall(strip_comments(path.read_text(encoding="utf-8"))))
+        out[path.stem] = set(REQUIRED_ROOT.findall(strip_comments(path.read_text(encoding="utf-8"))))
     return out
 
 

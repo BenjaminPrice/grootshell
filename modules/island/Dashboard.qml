@@ -56,6 +56,25 @@ Item {
             // so this showed a stale value or nothing at all depending on where
             // you had been.
 
+            // A way into the settings from the surface you are most likely to
+            // be looking at. Not a tab: settings is a modal, because it is
+            // somewhere you go deliberately and stay a while rather than glance
+            // at. SUPER+comma opens it from anywhere.
+            Icon {
+                text: "settings"
+                color: settingsHover.containsMouse ? Theme.accent : Theme.textMuted
+                size: Appearance.font.size.md
+
+                MouseArea {
+                    id: settingsHover
+                    anchors.fill: parent
+                    anchors.margins: -6
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: ShellState.open("settings")
+                }
+            }
+
             // Weather, in the space that left. Conditions now and the next few
             // hours — the two things worth knowing without opening anything.
             // Anything more (the ten days, the full hourly run) is a tab away,

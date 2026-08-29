@@ -21,6 +21,7 @@ import qs.modules.network
 import qs.modules.clipboard
 import qs.modules.switcher
 import qs.modules.keybinds
+import qs.modules.settings
 
 // grootshell.
 //
@@ -325,6 +326,11 @@ ShellRoot {
                         id: keybindsModal
                         anchors.centerIn: parent
                     }
+
+                    SettingsPanel {
+                        id: settingsPanel
+                        anchors.centerIn: parent
+                    }
                 }
 
                 // Everything that should accept a click. A panel that is closed
@@ -367,6 +373,9 @@ ShellRoot {
                     }
                     Region {
                         item: keybindsModal.visible ? keybindsModal : null
+                    }
+                    Region {
+                        item: settingsPanel.visible ? settingsPanel : null
                     }
                     // The OSD contributes two regions rather than none.
                     //
@@ -522,6 +531,13 @@ ShellRoot {
         target: "keybinds"
         function toggle(): void {
             ShellState.toggle("keybinds");
+        }
+    }
+
+    IpcHandler {
+        target: "settings"
+        function toggle(): void {
+            ShellState.toggle("settings");
         }
     }
 

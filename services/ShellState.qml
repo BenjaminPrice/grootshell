@@ -28,6 +28,7 @@ Singleton {
     property bool switcher: false
     property bool desktops: false
     property bool keybinds: false
+    property bool settings: false
 
     property string islandTab: Config.island.defaultTab
 
@@ -43,7 +44,7 @@ Singleton {
     // Only one of these can be up at a time. They all want keyboard focus and
     // they all sit in roughly the same place; two at once is visual soup and an
     // input fight. Opening one closes the rest.
-    readonly property var exclusive: ["launcher", "translate", "island", "clipboard", "notifications", "network", "switcher", "desktops", "keybinds"]
+    readonly property var exclusive: ["launcher", "translate", "island", "clipboard", "notifications", "network", "switcher", "desktops", "keybinds", "settings"]
 
     readonly property bool anyOpen: exclusive.some(n => root[n])
 
