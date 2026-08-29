@@ -545,6 +545,12 @@ ShellRoot {
         function toggle(): void {
             ShellState.toggle("settings");
         }
+        // `grootshell-ipc call settings open Weather` — straight to a group,
+        // the same jump the weather tab's "Open settings" button makes. Titles
+        // are as they appear in the rail; an unknown one just opens the panel.
+        function open(group: string): void {
+            ShellState.openSettings(group);
+        }
     }
 
     IpcHandler {

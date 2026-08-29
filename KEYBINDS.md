@@ -87,6 +87,7 @@ want on a key: one bind, no state to track.
 | `network toggle` | Wi-Fi panel — join, forget, radio on/off |
 | `keybinds toggle` | The cheatsheet |
 | `settings toggle` | Settings |
+| `settings open <group>` | Straight to a group: `Scale`, `Bar`, `Frame`, `Panels`, `Theme`, `Media`, `Weather`, `Wallpaper and system` |
 | `translate toggle` | Translation panel |
 | `switcher toggle` | Window switcher |
 
