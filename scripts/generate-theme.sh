@@ -2,7 +2,7 @@
 #
 # grootshell-theme — derive the whole desktop's colours from a wallpaper.
 #
-#   generate-theme.sh <image> [light|dark]
+#   generate-theme.sh <image> [light|dark] [force]
 #
 # matugen reads the image and produces a Material 3 palette; the templates beside
 # this script turn that palette into the config each consumer wants:
@@ -51,6 +51,68 @@ image="$1"
 command -v matugen >/dev/null || die "matugen is not on PATH; see the README"
 
 mode="${2:-}"
+# Any third argument means "ignore the cache". The shell passes it for the
+# `theme regenerate` IPC call, whose whole purpose is the case where what is on
+# disk is wrong rather than merely stale — and a cache is exactly the sort of
+# thing that can be wrong.
+force="${3:-}"
+
+# --- The cache ----------------------------------------------------------------
+#
+# Generating is not free: matugen reads every pixel, measured at 131ms on a 2MP
+# PNG and 1555ms on a 24MP JPEG. That used to be invisible because the wallpaper
+# changed first and the colours caught up; now that the cross-fade waits for the
+# palette, it is a pause between clicking a wallpaper and anything happening.
+#
+# It is also perfectly repeatable — the same image through the same templates
+# gives the same five files every time. So the second visit to a wallpaper is a
+# copy rather than a computation, which is most visits: people cycle among the
+# wallpapers they like.
+#
+# The key covers everything that changes the output. The image by path AND by
+# mtime and size, so editing a file in place invalidates it. The mode as it was
+# ASKED for rather than as resolved, because "auto" resolves from the image and
+# is therefore stable per image. The templates, so editing one takes effect
+# without a manual purge. And the GTK theme names, which are overridable and end
+# up in settings.ini.
+cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/grootshell/themes"
+
+stamp() {
+  # GNU first, BSD second. A missing stat is not fatal — the fingerprint just
+  # gets weaker, and the worst case is a stale entry that `force` clears.
+  stat -c '%Y %s' "$1" 2>/dev/null || stat -f '%m %z' "$1" 2>/dev/null || echo nostat
+}
+
+fingerprint() {
+  if command -v sha256sum >/dev/null; then
+    sha256sum | cut -d' ' -f1
+  elif command -v shasum >/dev/null; then
+    shasum -a 256 | cut -d' ' -f1
+  else
+    # Not cryptographic, and does not need to be: this names a cache entry, it
+    # does not authenticate one.
+    cksum | tr -d ' '
+  fi
+}
+
+cache_key="$({
+  printf '%s\n' 1 "$image" "$(stamp "$image")" "${2:-auto}" "$gtk_dark" "$gtk_light"
+  for tpl in "$templates"/*.tpl; do
+    printf '%s %s\n' "${tpl##*/}" "$(stamp "$tpl")"
+  done
+} | fingerprint)"
+entry="$cache_root/$cache_key"
+
+# A hit also supplies the mode, which is what lets the brightness probe below be
+# skipped entirely — that probe is a second full read of the image.
+cached=""
+if [ -z "$force" ] && [ -r "$entry/meta" ]; then
+  cached_mode="$(sed -n 's/^mode=//p' "$entry/meta")"
+  if [ -n "$cached_mode" ]; then
+    cached="$entry"
+    mode="$cached_mode"
+  fi
+fi
 
 # --- Light or dark, from the image itself ------------------------------------
 #
@@ -124,23 +186,23 @@ cat >"$work/matugen.toml" <<TOML
 
 [templates.grootshell]
 input_path = "$work/theme.json.tpl"
-output_path = "$config/grootshell/theme.json"
+output_path = "$work/out/theme.json"
 
 [templates.gtk3]
 input_path = "$templates/gtk.css.tpl"
-output_path = "$config/gtk-3.0/gtk.css"
+output_path = "$work/out/gtk3.css"
 
 [templates.gtk4]
 input_path = "$templates/gtk.css.tpl"
-output_path = "$config/gtk-4.0/gtk.css"
+output_path = "$work/out/gtk4.css"
 
 [templates.wezterm]
 input_path = "$templates/wezterm-colours.lua.tpl"
-output_path = "$config/wezterm/colours.lua"
+output_path = "$work/out/wezterm-colours.lua"
 
 [templates.qt6ct]
 input_path = "$templates/qt6ct-colors.conf.tpl"
-output_path = "$config/qt6ct/colors/grootshell.conf"
+output_path = "$work/out/qt6ct.conf"
 TOML
 
 # matugen does not create output directories, and on a fresh machine most of
@@ -152,6 +214,28 @@ mkdir -p \
   "$config/wezterm" \
   "$config/qt6ct/colors"
 
+# Rendered files are staged and then copied into place, rather than written
+# where they belong directly. Staging is what makes them cacheable: the five
+# outputs become a directory that can be kept and copied back next time.
+#
+# `cp` and not `mv`: an atomic replace swaps the inode, and the shell's FileView
+# watches theme.json by PATH — it would never see the change. Overwriting in
+# place is what makes the colours apply live, and is worth not tidying up.
+install_theme() {
+  cp -f "$1/theme.json" "$config/grootshell/theme.json"
+  cp -f "$1/gtk3.css" "$config/gtk-3.0/gtk.css"
+  cp -f "$1/gtk4.css" "$config/gtk-4.0/gtk.css"
+  cp -f "$1/wezterm-colours.lua" "$config/wezterm/colours.lua"
+  cp -f "$1/qt6ct.conf" "$config/qt6ct/colors/grootshell.conf"
+}
+
+if [ -n "$cached" ]; then
+  install_theme "$cached"
+  # Touch it so the pruning below is least-recently-USED rather than oldest.
+  touch "$cached" 2>/dev/null || true
+  echo "grootshell-theme: cached colours for $(basename "$image") ($mode)"
+else
+
 # scheme-content, not the default scheme-tonal-spot. Measured against real
 # wallpapers: tonal-spot desaturates surfaces toward neutral grey, which stops
 # reading as "matches the wallpaper" the moment the image has a strong hue.
@@ -161,12 +245,34 @@ mkdir -p \
 # matugen ask, and on a headless host there is nobody to answer — it exits with
 # "IO error: not a terminal". Saturation picks the most chromatic candidate,
 # which is the one a person would have chosen. The flag needs matugen 4.1+.
+mkdir -p "$work/out"
 matugen image "$image" \
   --mode "$mode" \
   --type scheme-content \
   --prefer saturation \
   --config "$work/matugen.toml" \
   --quiet
+
+install_theme "$work/out"
+
+# Keep the result. Built beside the entry and moved into place, so a run that
+# dies midway cannot leave a half-written entry to be found as a hit later.
+if mkdir -p "$cache_root" 2>/dev/null; then
+  printf 'mode=%s\n' "$mode" >"$work/out/meta"
+  rm -rf "$entry" "$entry.tmp"
+  if mv "$work/out" "$entry.tmp" 2>/dev/null && mv "$entry.tmp" "$entry" 2>/dev/null; then
+    # LRU, capped. Each entry is five small text files, so this is about tidiness
+    # rather than space — but a cache that only grows is a bug with a slow fuse.
+    # shellcheck disable=SC2012
+    ls -1dt "$cache_root"/*/ 2>/dev/null | tail -n +65 | while read -r old; do
+      rm -rf "$old"
+    done
+  else
+    echo "grootshell-theme: could not cache colours for $(basename "$image")" >&2
+  fi
+fi
+
+fi
 
 # --- The GTK theme name -------------------------------------------------------
 #

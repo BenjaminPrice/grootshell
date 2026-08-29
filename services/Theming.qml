@@ -51,7 +51,7 @@ Singleton {
     // any case where the file on disk is wrong rather than merely stale.
     function regenerate(): void {
         root.lastGenerated = "";
-        root.generate(Wallpapers.current);
+        root.generate(Wallpapers.current, true);
     }
 
     // Cycles auto -> light -> dark -> auto. Bound to a key in the wallpaper
@@ -77,12 +77,16 @@ Singleton {
     // nothing next to a matugen run.
     readonly property string script: `${Quickshell.shellDir}/scripts/generate-theme.sh`
 
-    function generate(path: string): void {
+    // `force` bypasses both dedupes: this service's, and the generator's own cache
+    // of previously-seen wallpapers. Only regenerate() passes it, because it is
+    // the one caller whose reason for existing is that what is on disk is wrong
+    // rather than stale — and a cache is exactly the sort of thing that is wrong.
+    function generate(path: string, force: bool): void {
         // Declined, so nothing is coming: settle now rather than leaving the
         // wallpaper crossfade waiting on a run that will never start. The
         // already-generated case is the common one — a wallpaper set back to
         // one seen before still has its colours on disk.
-        if (!path || path === root.lastGenerated || generator.running) {
+        if (!path || (!force && path === root.lastGenerated) || generator.running) {
             if (path)
                 root.markSettled(path);
             return;
@@ -91,7 +95,7 @@ Singleton {
         // The generator picks light or dark from the image unless told; passing
         // the mode is what overrides that, so "auto" passes nothing at all.
         const mode = Persist.themeMode === "auto" ? "" : Persist.themeMode;
-        generator.command = ["sh", "-c", 'if command -v grootshell-theme >/dev/null 2>&1; then exec grootshell-theme "$@"; else exec "$0" "$@"; fi', root.script, path, mode];
+        generator.command = ["sh", "-c", 'if command -v grootshell-theme >/dev/null 2>&1; then exec grootshell-theme "$@"; else exec "$0" "$@"; fi', root.script, path, mode, force ? "force" : ""];
         generator.running = true;
         console.log("grootshell: generating colours from", path);
     }
@@ -108,14 +112,14 @@ Singleton {
         target: Persist
         function onThemeModeChanged(): void {
             root.lastGenerated = "";
-            root.generate(Wallpapers.current);
+            root.generate(Wallpapers.current, false);
         }
     }
 
     Connections {
         target: Wallpapers
         function onCurrentChanged(): void {
-            root.generate(Wallpapers.current);
+            root.generate(Wallpapers.current, false);
         }
     }
 
@@ -132,7 +136,7 @@ Singleton {
         interval: 1500
         onTriggered: {
             if (!Theme.loaded && Wallpapers.current)
-                root.generate(Wallpapers.current);
+                root.generate(Wallpapers.current, false);
         }
     }
 

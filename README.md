@@ -37,9 +37,17 @@ capsule into a panel that rises into the top border and hangs off it. Five tabs:
 
 **Wallpaper-derived theming.** Picking a wallpaper runs it through
 [matugen](https://github.com/InioX/matugen) to produce a Material 3 palette, and
-the entire shell cross-fades to it. Light or dark is chosen from the image's own
-brightness, with a manual override. The same palette is written out for GTK, Qt
-(via qt6ct) and WezTerm, so applications follow the desktop.
+the entire shell cross-fades to it — image and colours together, on the same
+frame. Light or dark is chosen from the image's own brightness, with a manual
+override. The same palette is written out for GTK, Qt (via qt6ct) and WezTerm,
+so applications follow the desktop.
+
+Generated palettes are cached under `~/.cache/grootshell/themes`, keyed by the
+image, its mtime, the mode and the templates. Wallpapers you have used before
+apply in about 40ms rather than the 0.1–1.6 seconds matugen takes to read them,
+which matters because the cross-fade waits for the palette. Editing an image or
+a template invalidates its entry; `grootshell-ipc call theme regenerate` ignores
+the cache entirely.
 
 **Calendar and agenda.** Several iCal feeds merged into one agenda, with
 colour-coded calendars, day indicators on the month grid, and one-press joining
