@@ -50,13 +50,27 @@ Singleton {
         root.regenerate();
     }
 
+    // Prefer a `grootshell-theme` on PATH, and fall back to the script this repo
+    // ships beside shell.qml.
+    //
+    // The packaged wrapper is preferred because it brings its own dependencies —
+    // matugen, ImageMagick, dconf — which a bare checkout cannot assume are
+    // installed. The fallback is what makes the shell work at all without that
+    // package: same script, run directly, with whatever the user has.
+    //
+    // Chosen inside the shell rather than by probing first, so there is no
+    // availability state to keep and no ordering to get wrong. `command -v` costs
+    // nothing next to a matugen run.
+    readonly property string script: `${Quickshell.shellDir}/scripts/generate-theme.sh`
+
     function generate(path: string): void {
         if (!path || path === root.lastGenerated || generator.running)
             return;
         root.pending = path;
         // The generator picks light or dark from the image unless told; passing
         // the mode is what overrides that, so "auto" passes nothing at all.
-        generator.command = Persist.themeMode === "auto" ? ["grootshell-theme", path] : ["grootshell-theme", path, Persist.themeMode];
+        const mode = Persist.themeMode === "auto" ? "" : Persist.themeMode;
+        generator.command = ["sh", "-c", 'if command -v grootshell-theme >/dev/null 2>&1; then exec grootshell-theme "$@"; else exec "$0" "$@"; fi', root.script, path, mode];
         generator.running = true;
         console.log("grootshell: generating colours from", path);
     }

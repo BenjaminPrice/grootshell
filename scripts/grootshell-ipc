@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+#
+# grootshell-ipc — talk to a running grootshell.
+#
+#   grootshell-ipc call launcher toggle
+#   grootshell-ipc show
+#
+# This is what every Hyprland keybind invokes, so it has to work without the Nix
+# package: put it on PATH, or bind the absolute path to it.
+#
+# It is a thin wrapper around `qs ipc` whose only job is knowing WHICH shell to
+# talk to. Quickshell identifies an instance by its config path, so that has to
+# be passed every time; GROOTSHELL_CONFIG_PATH is the same variable the shell
+# itself reads, which is what keeps the two pointed at the same place when it is
+# running from a dev checkout instead of an installed copy.
+#
+# If neither the variable nor the default is right, `qs list --all` will show
+# what is actually running.
+
+set -eu
+
+here="$(cd -- "$(dirname -- "$0")" && pwd)"
+
+# The repo root: this script lives in scripts/, and shell.qml sits beside it.
+# Serves as the fallback so a checkout works with no configuration at all.
+default="$(dirname -- "$here")"
+
+exec qs -p "${GROOTSHELL_CONFIG_PATH:-$default}" ipc "$@"

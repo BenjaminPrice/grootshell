@@ -5,9 +5,9 @@ import Quickshell
 import Quickshell.Io
 import qs.config
 
-// Calendar events, from the .ics feed the nixos repo fetches.
+// Calendar events, from the .ics feeds named in the configured feed list.
 //
-// `grootshell-calendar` does the network and the parsing — including recurrence
+// scripts/fetch_calendar.py does the network and the parsing — including recurrence
 // expansion, which is not something to reimplement in QML — and prints JSON.
 // This polls it and shapes the result for the dashboard.
 //
@@ -113,9 +113,15 @@ Singleton {
         onTriggered: root.refresh()
     }
 
+    // Prefer a `grootshell-calendar` on PATH, and fall back to the script this
+    // repo ships beside shell.qml. The packaged wrapper brings its own Python
+    // environment — icalendar and recurring-ical-events — which a bare checkout
+    // cannot assume; the fallback is what makes the agenda work without it.
+    readonly property string script: `${Quickshell.shellDir}/scripts/fetch_calendar.py`
+
     Process {
         id: fetcher
-        command: ["grootshell-calendar"]
+        command: ["sh", "-c", 'if command -v grootshell-calendar >/dev/null 2>&1; then exec grootshell-calendar; else exec python3 "$0"; fi', root.script]
         running: false
 
         onRunningChanged: root.loading = fetcher.running

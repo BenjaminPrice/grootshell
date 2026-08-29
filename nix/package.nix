@@ -28,6 +28,14 @@
   libnotify,
   lm_sensors,
   networkmanager,
+  # The theme generator's own dependencies. matugen must be 4.1+ for --prefer;
+  # the flake pins nixos-unstable, where it is.
+  matugen,
+  imagemagick,
+  dconf,
+  # The calendar fetcher's. Recurrence expansion is not something to reimplement
+  # in QML, so this is Python and stays Python.
+  python3,
   procps,
   slurp,
   swappy,
@@ -85,6 +93,18 @@ let
       ''
         mkdir -p $out
         cp -r $src/shell.qml $src/config $src/services $src/components $src/modules $out/
+
+        # scripts/ and templates/ ship WITH the QML, not beside it.
+        #
+        # The shell resolves its own helpers from Quickshell.shellDir — the
+        # directory holding shell.qml — so it can fall back to the scripts this
+        # repo carries when the packaged wrappers are not on PATH. Leave these
+        # out and that fallback resolves to nothing in the store copy while
+        # working perfectly from a checkout, which is the worst kind of
+        # difference between the two.
+        cp -r $src/scripts $src/templates $out/
+        chmod +x $out/scripts/*.sh $out/scripts/grootshell-ipc
+
         # assets/ is optional while the tree is young.
         [ -d $src/assets ] && cp -r $src/assets $out/ || true
       '';
@@ -107,6 +127,46 @@ let
 
   shell = mkWrapper "grootshell" "";
 
+  # The two helpers the shell shells out to.
+  #
+  # Both are thin wrappers around scripts that live in THIS repo, rather than
+  # reimplementations of them in Nix. That is the whole point: the script is the
+  # single definition, Nix supplies its dependencies, and a non-Nix user runs the
+  # same file directly. The shell prefers these wrappers when they are on PATH
+  # and falls back to the bundled scripts when they are not — see
+  # services/Theming.qml and services/Calendar.qml.
+  theme = writeShellApplication {
+    name = "grootshell-theme";
+    runtimeInputs = [
+      matugen
+      imagemagick
+      dconf
+      coreutils
+      gnused
+      gnugrep
+    ];
+    # Explicit rather than relying on the script finding templates/ beside its
+    # own directory. That relative lookup is correct for this layout and would
+    # break silently if the layout ever changed.
+    text = ''
+      export GROOTSHELL_TEMPLATES="${qml}/templates"
+      exec "${qml}/scripts/generate-theme.sh" "$@"
+    '';
+  };
+
+  calendarPython = python3.withPackages (ps: [
+    ps.icalendar
+    ps.recurring-ical-events
+  ]);
+
+  calendar = writeShellApplication {
+    name = "grootshell-calendar";
+    runtimeInputs = [ calendarPython ];
+    text = ''
+      exec python3 "${qml}/scripts/fetch_calendar.py" "$@"
+    '';
+  };
+
   # Separate binary rather than a subcommand: Hyprland keybinds invoke this
   # directly, and `grootshell-ipc call launcher toggle` reads better in a bind
   # than an argv-sniffing wrapper would.
@@ -118,6 +178,8 @@ symlinkJoin {
   paths = [
     shell
     ipc
+    theme
+    calendar
   ];
 
   postBuild = ''
