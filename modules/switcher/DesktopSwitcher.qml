@@ -237,8 +237,15 @@ Panel {
                     StyledText {
                         anchors.centerIn: parent
                         text: root.numerals[card.index] ?? String(card.wsId)
-                        color: Theme.outlineVariant
+                        // The clock's colour, not an outline shade. These are
+                        // the two places the shell writes something large and
+                        // plain across a surface, and they should read as the
+                        // same piece of typography rather than as text and
+                        // decoration.
+                        color: Theme.text
                         font.pixelSize: Math.round(root.cardHeight * 0.5)
+                        // Still an ornament where there are windows to look at
+                        // instead — the colour changed, not the hierarchy.
                         opacity: card.windows.length > 0 ? 0.25 : 1
                     }
 

@@ -148,9 +148,15 @@ Panel {
                     type: "bool"
                 },
                 {
-                    key: "bar.showNetwork",
+                    key: "bar.showEthernet",
+                    label: "Show wired",
+                    detail: "Link speed and your IP addresses. Nothing to click — a disconnect button on a machine you reach over that cable is a trap",
+                    type: "bool"
+                },
+                {
+                    key: "bar.showWifi",
                     label: "Show Wi-Fi",
-                    detail: "The indicator and its panel — joining, forgetting, and the radio switch",
+                    detail: "Join protected networks, forget them, switch the radio, and see your IP addresses",
                     type: "bool"
                 },
                 {

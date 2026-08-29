@@ -22,7 +22,8 @@ Singleton {
     property bool island: false
     property bool clipboard: false
     property bool notifications: false
-    property bool network: false
+    property bool ethernet: false
+    property bool wifi: false
     // The window switcher (every window, one grid) and the desktop switcher
     // (every workspace, drawn to scale). Different questions, so two panels.
     property bool switcher: false
@@ -60,7 +61,7 @@ Singleton {
     // Only one of these can be up at a time. They all want keyboard focus and
     // they all sit in roughly the same place; two at once is visual soup and an
     // input fight. Opening one closes the rest.
-    readonly property var exclusive: ["launcher", "translate", "island", "clipboard", "notifications", "network", "switcher", "desktops", "keybinds", "settings"]
+    readonly property var exclusive: ["launcher", "translate", "island", "clipboard", "notifications", "ethernet", "wifi", "switcher", "desktops", "keybinds", "settings"]
 
     readonly property bool anyOpen: exclusive.some(n => root[n])
 

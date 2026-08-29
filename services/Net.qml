@@ -28,6 +28,25 @@ Singleton {
     property string ethernet: ""      // connection name, "" when down
     property string wifi: ""          // SSID, "" when not connected
     property string device: ""        // the wifi interface, for disconnect
+    property string wiredDevice: ""   // the ethernet interface
+
+    // Addresses, per interface. The wired panel offers nothing to click, so
+    // these are the whole reason to open it — and they are the answer to the
+    // question anyone actually has about a connection.
+    //
+    // One of each. An interface with SLAAC and privacy extensions carries three
+    // or four IPv6 addresses and only one of them answers "what is my address":
+    // the temporary ones are deliberately short-lived, and a panel listing all
+    // four is a panel nobody can read at a glance.
+    property string wiredV4: ""
+    property string wiredV6: ""
+    property string wifiV4: ""
+    property string wifiV6: ""
+
+    // Negotiated link speed in Mb/s, 0 when unknown. Cheap to read and worth
+    // showing: a gigabit port that has quietly negotiated 100 is a real fault
+    // that nothing else on the desktop would ever mention.
+    property int wiredSpeed: 0
     property int strength: 0          // 0-100
     property bool wifiEnabled: false
     property bool scanning: false
@@ -58,12 +77,12 @@ Singleton {
         return root.saved[ssid] === true;
     }
 
-    function icon(): string {
-        if (root.ethernet !== "")
-            return "lan";
-        if (!root.wifiEnabled)
-            return "wifi_off";
-        if (root.wifi === "")
+    // One glyph per indicator, because there are two indicators now. The old
+    // single icon had to answer "what am I connected by" before it could answer
+    // anything else, which is why wired machines got a permanently green icon
+    // and wireless ones got no way to see the cable.
+    function wifiIcon(): string {
+        if (!root.wifiEnabled || root.wifi === "")
             return "wifi_off";
         if (root.strength > 66)
             return "wifi";
@@ -72,12 +91,8 @@ Singleton {
         return "wifi_1_bar";
     }
 
-    function label(): string {
-        if (root.ethernet !== "")
-            return root.ethernet;
-        if (root.wifi !== "")
-            return root.wifi;
-        return "offline";
+    function wiredIcon(): string {
+        return root.ethernet !== "" ? "lan" : "portable_wifi_off";
     }
 
     Process {
@@ -85,6 +100,7 @@ Singleton {
         running: true
         command: ["bash", "-c", `
             dev=$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2=="wifi"{print $1; exit}')
+            wired=$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2=="ethernet"{print $1; exit}')
             eth=$(nmcli -t -f TYPE,STATE,CONNECTION device status | awk -F: '$1=="ethernet" && $2 ~ /^connected/{print $3; exit}')
             # NetworkManager is not always the one holding the wire. A machine
             # using systemd-networkd for a static wired address reports that
@@ -97,9 +113,36 @@ Singleton {
                 [ -n "$rdev" ] && [ "$rdev" != "$dev" ] && eth="$rdev"
             fi
             wifi=$(nmcli -t -f ACTIVE,SSID,SIGNAL device wifi list --rescan no 2>/dev/null | awk -F: '$1=="yes"{print $2":"$3; exit}')
+
+            # If nmcli named no ethernet device, the routing fallback above may
+            # still have named an interface, and it is what to ask for an
+            # address either way.
+            [ -z "$wired" ] && wired="$rdev"
+
+            # Addresses from the kernel rather than from nmcli, which only knows
+            # about interfaces it manages — the same reason the fallback exists.
+            #
+            # Scope "global" drops link-local and loopback -- and no backticks
+            # in here, however much a shell comment wants them: this whole block
+            # is a JS template literal, and one would end it early.
+            #
+            # For IPv6 the first
+            # address that is neither temporary nor deprecated is the stable
+            # one; if every candidate is temporary, take the first rather than
+            # showing nothing at all.
+            addr4() { [ -n "$1" ] && ip -o -4 addr show dev "$1" scope global 2>/dev/null | awk '{print $4; exit}'; }
+            addr6() {
+                [ -n "$1" ] || return 0
+                out=$(ip -o -6 addr show dev "$1" scope global 2>/dev/null)
+                stable=$(printf '%s\\n' "$out" | grep -v temporary | grep -v deprecated | awk '{print $4; exit}')
+                [ -n "$stable" ] && printf '%s' "$stable" || printf '%s\\n' "$out" | awk '{print $4; exit}'
+            }
+            speed=$([ -n "$wired" ] && cat "/sys/class/net/$wired/speed" 2>/dev/null || echo "")
             enabled=$(nmcli -t radio wifi 2>/dev/null)
             # Saved wireless profiles, one per line, after the counts above.
             printf '%s\\n%s\\n%s\\n%s\\n' "$eth" "$wifi" "$dev" "$enabled"
+            printf '%s\\n%s\\n%s\\n' "$wired" "$(addr4 "$wired")" "$(addr6 "$wired")"
+            printf '%s\\n%s\\n%s\\n' "$(addr4 "$dev")" "$(addr6 "$dev")" "\${speed:-}"
             nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F: '$2=="802-11-wireless"{print $1}'
         `]
 
@@ -121,9 +164,16 @@ Singleton {
                 root.device = (lines[2] ?? "").trim();
                 root.wifiEnabled = (lines[3] ?? "").trim() === "enabled";
 
-                // Everything from the fifth line on is a saved profile name.
+                root.wiredDevice = (lines[4] ?? "").trim();
+                root.wiredV4 = (lines[5] ?? "").trim();
+                root.wiredV6 = (lines[6] ?? "").trim();
+                root.wifiV4 = (lines[7] ?? "").trim();
+                root.wifiV6 = (lines[8] ?? "").trim();
+                root.wiredSpeed = parseInt((lines[9] ?? "").trim()) || 0;
+
+                // Everything from the eleventh line on is a saved profile name.
                 const known = {};
-                for (let i = 4; i < lines.length; i++) {
+                for (let i = 10; i < lines.length; i++) {
                     const name = lines[i].trim();
                     if (name)
                         known[name] = true;

@@ -73,14 +73,20 @@ Singleton {
                 property int workspaces: 5
                 property bool showTray: true
 
-                // The Wi-Fi indicator, and the panel behind it.
+                // The two network indicators, and the panels behind them.
                 //
-                // Off by default because the machine this was built on is wired
-                // and has never been anything else — a permanently green icon
-                // reporting a fact that cannot change. Turn it on if you are on
-                // wifi, which is most people: the panel joins protected
-                // networks, disconnects, forgets and toggles the radio.
-                property bool showNetwork: false
+                // Separate, because one icon cannot show two connections: it has
+                // to choose what it is reporting, and whatever it chooses, the
+                // other has no way to be seen. Wired answers "what is my
+                // address"; wifi joins, forgets and switches the radio.
+                //
+                // Both off by default because the machine this was built on is
+                // wired and has never been anything else, so even the wired icon
+                // would report a fact that cannot change. Turn on whichever
+                // matches how your machine is actually connected — for most
+                // people that is wifi, and for a desktop it may be both.
+                property bool showEthernet: false
+                property bool showWifi: false
                 // Tray icons are images, not glyphs, and IconImage pads a
                 // non-square source to fit — so they need to be a size up to
                 // look level with the Material Symbols icons next to them.

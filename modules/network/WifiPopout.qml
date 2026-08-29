@@ -16,12 +16,17 @@ import qs.components
 // dialog. A dialog would be a second surface competing for the keyboard focus
 // this panel already holds, and the thing you are typing into belongs to the row
 // you clicked.
+//
+// Wired lives in its own panel next door. One panel called "network" that led
+// with an ethernet line and then listed wifi was answering two unrelated
+// questions — "am I online" and "which network do I want" — and the toggle that
+// showed it could only be labelled vaguely enough to cover both.
 
 Panel {
     id: root
 
     edge: "top"
-    open: ShellState.network
+    open: ShellState.wifi
     implicitWidth: 360
     implicitHeight: Math.min(520, body.implicitHeight + Appearance.padding.lg * 2)
     radius: Appearance.rounding.large
@@ -46,9 +51,9 @@ Panel {
             spacing: Appearance.spacing.md
 
             Icon {
-                text: Net.icon()
+                text: Net.wifiIcon()
                 filled: true
-                color: Net.connected ? Theme.accent : Theme.error
+                color: Net.wifi !== "" ? Theme.accent : Theme.textMuted
                 size: Appearance.font.size.xl
             }
 
@@ -58,7 +63,7 @@ Panel {
 
                 StyledText {
                     Layout.fillWidth: true
-                    text: Net.label()
+                    text: Net.wifi !== "" ? Net.wifi : "Not connected"
                     color: Theme.text
                     font.pixelSize: Appearance.font.size.md
                     elide: Text.ElideRight
@@ -66,20 +71,29 @@ Panel {
 
                 StyledText {
                     Layout.fillWidth: true
-                    text: Net.ethernet !== "" ? "Wired" : Net.wifi !== "" ? `Wireless · ${Net.strength}%` : "Not connected"
+                    visible: Net.wifi !== ""
+                    text: `${Net.strength}% signal`
                     color: Theme.textMuted
                     font.pixelSize: Appearance.font.size.xs
                 }
             }
 
-            // Only for wifi. Disconnecting ethernet from a panel you reached
-            // over the network is a way to lock yourself out of the machine.
             Action {
                 visible: Net.wifi !== ""
                 glyph: "link_off"
                 tip: "Disconnect"
                 onActivated: Net.disconnect()
             }
+        }
+
+        // The addresses of whatever is connected. Only once there is one — an
+        // empty pair of labels reading "—" is noise on a panel whose job right
+        // now is the list below.
+        AddressBlock {
+            Layout.fillWidth: true
+            visible: Net.wifi !== ""
+            v4: Net.wifiV4
+            v6: Net.wifiV6
         }
 
         Rectangle {

@@ -68,7 +68,7 @@ of the table below.
 
 ## Every IPC call
 
-Fourteen targets. Anything a panel does can be done from a script, which is the
+Fifteen targets. Anything a panel does can be done from a script, which is the
 point — the binds are just the most common caller.
 
 ### Panels
@@ -84,7 +84,8 @@ want on a key: one bind, no state to track.
 | `island tab <name>` | Opens straight to a tab: `dashboard`, `media`, `performance`, `wallpaper`, `weather` |
 | `notifications toggle` | Notification centre |
 | `clipboard toggle` | Clipboard history (needs `cliphist`) |
-| `network toggle` | Wi-Fi panel — join, forget, radio on/off |
+| `wifi toggle` | Wi-Fi — join, forget, radio on/off, addresses |
+| `ethernet toggle` | Wired — interface, link speed, addresses. Nothing to click |
 | `keybinds toggle` | The cheatsheet |
 | `settings toggle` | Settings |
 | `settings open <group>` | Straight to a group: `Scale`, `Bar`, `Frame`, `Panels`, `Theme`, `Media`, `Weather`, `Wallpaper and system` |

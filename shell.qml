@@ -336,8 +336,15 @@ ShellRoot {
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
-                    NetworkPopout {
-                        id: networkPopout
+                    WifiPopout {
+                        id: wifiPopout
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.topMargin: scope.topDock
+                    }
+
+                    EthernetPopout {
+                        id: ethernetPopout
                         anchors.right: parent.right
                         anchors.top: parent.top
                         anchors.topMargin: scope.topDock
@@ -397,7 +404,10 @@ ShellRoot {
                         item: toasts.visible ? toasts : null
                     }
                     Region {
-                        item: networkPopout.visible ? networkPopout : null
+                        item: wifiPopout.visible ? wifiPopout : null
+                    }
+                    Region {
+                        item: ethernetPopout.visible ? ethernetPopout : null
                     }
                     Region {
                         item: clipboardPanel.visible ? clipboardPanel : null
@@ -528,12 +538,22 @@ ShellRoot {
         }
     }
 
+    // Two targets, because there are two panels. `network` is gone rather than
+    // kept as an alias for one of them: it would have to pick, and a bind that
+    // opens wifi when it says network is worse than one that fails loudly.
     IpcHandler {
-        target: "network"
+        target: "wifi"
         function toggle(): void {
-            if (!ShellState.network)
+            if (!ShellState.wifi)
                 Net.scan();
-            ShellState.toggle("network");
+            ShellState.toggle("wifi");
+        }
+    }
+
+    IpcHandler {
+        target: "ethernet"
+        function toggle(): void {
+            ShellState.toggle("ethernet");
         }
     }
 

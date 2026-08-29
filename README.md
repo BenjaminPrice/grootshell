@@ -213,7 +213,7 @@ grootshell-ipc call launcher toggle
 grootshell-ipc show                     # every target and function, live
 ```
 
-**[KEYBINDS.md](KEYBINDS.md)** is the full version: all fourteen IPC targets,
+**[KEYBINDS.md](KEYBINDS.md)** is the full version: all fifteen IPC targets,
 a set of default binds to paste into `hyprland.conf`, how to keep the in-shell
 cheatsheet from drifting out of sync with them, what does and does not carry
 across to Sway and Niri, and the four environment problems behind essentially

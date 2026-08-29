@@ -208,14 +208,30 @@ Item {
                     size: Appearance.font.size.lg
                 }
 
-                // Off by default: the machine this was built on is wired, so
-                // it was a permanently green icon reporting a fact that cannot
-                // change. On any machine that uses wifi it is the opposite —
-                // see Config.bar.showNetwork.
+                // Two indicators, not one. A single "network" icon has to decide
+                // what it is showing before it can show it — and whichever it
+                // picks, the other connection has no way to be seen. Both are
+                // off by default: this machine is wired and never anything else,
+                // so even the wired one would be a green icon reporting a fact
+                // that cannot change.
                 Icon {
-                    visible: Config.bar.showNetwork
-                    text: Net.icon()
-                    color: Net.connected ? Theme.textSecondary : Theme.error
+                    visible: Config.bar.showEthernet
+                    text: Net.wiredIcon()
+                    color: Net.ethernet !== "" ? Theme.textSecondary : Theme.error
+                    size: Appearance.font.size.lg
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: ShellState.toggle("ethernet")
+                    }
+                }
+
+                Icon {
+                    visible: Config.bar.showWifi
+                    text: Net.wifiIcon()
+                    color: Net.wifi !== "" ? Theme.textSecondary : Theme.textMuted
                     size: Appearance.font.size.lg
 
                     MouseArea {
@@ -223,9 +239,9 @@ Item {
                         anchors.margins: -4
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            if (!ShellState.network)
+                            if (!ShellState.wifi)
                                 Net.scan();
-                            ShellState.toggle("network");
+                            ShellState.toggle("wifi");
                         }
                     }
                 }
