@@ -1,0 +1,311 @@
+pragma Singleton
+
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import qs.config
+
+// Writing to shell.json, one key at a time.
+//
+// config/Config.qml only ever READS. That is deliberate and this service exists
+// to keep it that way, because the obvious alternative is a trap:
+//
+//   JsonAdapter.writeAdapter() does not serialise your settings. It serialises
+//   the WHOLE adapter, defaults and all.
+//
+// Changing one value and calling it produced this, from a five-key test adapter:
+//
+//   { "bar": { "clockFormat": "ddd d MMM  HH:mm", "height": 60, "showTray": true },
+//     "launcher": { "maxResults": 8, "width": 620 } }
+//
+// Four of those were never chosen by anyone. The file now asserts that
+// launcher.width is 620 — so if that default later becomes 700 because the
+// launcher grew a column, this user never gets it, for a value they never set,
+// in a section they never opened. Every interaction with a settings panel would
+// freeze the entire config surface at that moment, and anyone who nudged one
+// slider on their first day would be pinned to day-one defaults forever.
+//
+// So this does a read-modify-write of the raw JSON instead. Keys the user has
+// not touched stay ABSENT from the file, and absent means "follow the default",
+// which is the only way an upstream default can ever reach anyone.
+//
+// The file is re-read immediately before each write rather than kept in memory.
+// It is hand-editable and hot-reloaded, so anything cached here is a guess about
+// what is on disk — and the failure mode of guessing wrong is silently reverting
+// an edit somebody made in a text editor.
+
+Singleton {
+    id: root
+
+    readonly property string path: `${Config.configDir}/shell.json`
+
+    // Set only while a write is in flight, so a settings panel can show that it
+    // is saving without inventing its own state.
+    property bool saving: false
+
+    property FileView file: FileView {
+        id: file
+
+        path: root.path
+        // Not watched. Config already watches this file and applies changes; a
+        // second watcher here would only be for our own writes coming back.
+        printErrors: false
+
+        // BOTH block, and that is the entire correctness of this service.
+        //
+        // Every operation here is read-modify-write. Left asynchronous, `read()`
+        // after a `set()` returns the file as it was BEFORE the write landed —
+        // so setting a second key builds on a stale document and the write that
+        // follows silently drops the first one. Which is precisely the
+        // clobbering this whole service exists to prevent, reproduced inside it:
+        // the test wrote bar.height, read back {}, and lost it.
+        //
+        // The cost is a blocking read and write of a file with a handful of keys
+        // in it, on a code path that only runs when a human changes a setting.
+        blockLoading: true
+        blockWrites: true
+
+        // Written whole, so a crash mid-write must not leave a truncated file
+        // that Config then fails to parse — which would drop every setting at
+        // once, including the ones that were fine.
+        atomicWrites: true
+    }
+
+    // The file as an object. Missing or unparseable both read as empty, which is
+    // the same thing as "nothing overridden".
+    //
+    // Unparseable deliberately does NOT throw the contents away: the caller sets
+    // one key on this and writes it back, so a file we cannot read would be
+    // silently replaced by a file with one key in it. Returning null lets `set`
+    // refuse instead.
+    function read(): var {
+        file.reload();
+        const raw = file.text();
+        if (!raw || raw.trim() === "")
+            return ({});
+        try {
+            const parsed = JSON.parse(raw);
+            // A JSON document can legally be a number or a list. Anything that
+            // is not an object is not our file.
+            return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // Writes a value into the LIVE config object, without touching the file.
+    //
+    // Config's FileView has no onAdapterUpdated handler — unlike Persist's — so
+    // assigning to its adapter changes what the shell is using and writes
+    // nothing. That asymmetry is what makes reverting possible at all.
+    function applyLive(key: string, value: var): void {
+        const parts = key.split(".").filter(p => p !== "");
+        if (parts.length === 0)
+            return;
+        let node = Config;
+        for (let i = 0; i < parts.length - 1; i++) {
+            node = node?.[parts[i]];
+            if (node === undefined || node === null)
+                return;
+        }
+        try {
+            node[parts[parts.length - 1]] = value;
+        } catch (e) {
+            console.warn("grootshell: could not revert", key, "live:", e);
+        }
+    }
+
+    // What each overridden setting was BEFORE it was overridden, keyed by its
+    // dotted config path — a plain JSON file of its own, in the state directory.
+    //
+    // Its own file rather than a key in state.json: that one is a JsonAdapter,
+    // and assigning a whole object through a var property on one does not
+    // reliably persist. The blocking read-modify-write above already works and
+    // is the same shape, so this reuses it rather than fighting the adapter.
+    //
+    // State, not config: it is a record of what this machine did, it has no
+    // shipped default, and nobody should ever have to look at it.
+    property FileView defaultsFile: FileView {
+        id: defaultsFile
+
+        path: `${Quickshell.stateDir}/setting-defaults.json`
+        printErrors: false
+        blockLoading: true
+        blockWrites: true
+        atomicWrites: true
+    }
+
+    function readDefaults(): var {
+        defaultsFile.reload();
+        const raw = defaultsFile.text();
+        if (!raw || raw.trim() === "")
+            return ({});
+        try {
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : ({});
+        } catch (e) {
+            return ({});
+        }
+    }
+
+    // Recorded at the moment a key is FIRST overridden, because at that instant
+    // the live value is by definition the shipped default.
+    //
+    // That beats writing defaults into shell.json, which would freeze them — the
+    // config file stays sparse, so a default that improves upstream still
+    // reaches you, and this only exists to answer "what was it before".
+    function rememberDefault(key: string): void {
+        if (root.has(key))
+            return;
+        const known = root.readDefaults();
+        if (key in known)
+            return;
+        known[key] = root.resolve(key);
+        defaultsFile.setText(JSON.stringify(known, null, 2) + "\n");
+    }
+
+    function forgetDefault(key: string): var {
+        const known = root.readDefaults();
+        if (!(key in known))
+            return undefined;
+        const value = known[key];
+        delete known[key];
+        defaultsFile.setText(JSON.stringify(known, null, 2) + "\n");
+        return value;
+    }
+
+    // `set("bar.height", 60)` — a dotted path, so callers name the setting the
+    // same way they read it. Intermediate objects are created as needed.
+    function set(key: string, value: var): bool {
+        // Before anything is written: the live value right now is the default,
+        // because nothing has overridden it yet.
+        root.rememberDefault(key);
+
+        const doc = root.read();
+        if (doc === null) {
+            console.warn("grootshell: refusing to write shell.json, which is not readable as JSON — fix or remove it first");
+            return false;
+        }
+
+        const parts = key.split(".").filter(p => p !== "");
+        if (parts.length === 0)
+            return false;
+
+        let node = doc;
+        for (let i = 0; i < parts.length - 1; i++) {
+            const p = parts[i];
+            if (typeof node[p] !== "object" || node[p] === null || Array.isArray(node[p]))
+                node[p] = ({});
+            node = node[p];
+        }
+        node[parts[parts.length - 1]] = value;
+
+        // Apply it to the live config as well as writing it.
+        //
+        // Not belt and braces — the file alone does not take effect. Config
+        // re-reads shell.json through a watcher, and these writes are ATOMIC:
+        // the file is replaced rather than edited, so the inode changes and a
+        // watch on the path does not see it. Measured: after a write the live
+        // value was unchanged four seconds later, with or without an explicit
+        // reload, whether or not the file existed beforehand.
+        //
+        // Writing the file is what makes the setting survive a restart; this is
+        // what makes it take effect now. `unset` does the same thing with the
+        // remembered default, which is where this mechanism was proven.
+        if (!root.write(doc))
+            return false;
+        root.applyLive(key, value);
+        return true;
+    }
+
+    // Remove an override, so the key goes back to following the shipped default.
+    // A settings panel needs this as much as it needs `set` — without it, "reset
+    // to default" can only write today's default as a permanent override, which
+    // is the very thing this service exists to avoid.
+    //
+    // Two halves, and both are needed. Removing the key from the file is what
+    // makes future defaults apply; pushing the remembered default into the live
+    // config is what makes the shell change back NOW, because JsonAdapter never
+    // un-merges a key that disappears.
+    function unset(key: string): bool {
+        const previous = root.forgetDefault(key);
+        if (previous !== undefined)
+            root.applyLive(key, previous);
+
+        const doc = root.read();
+        if (doc === null)
+            return false;
+
+        const parts = key.split(".").filter(p => p !== "");
+        if (parts.length === 0)
+            return false;
+
+        // Walk to the parent, giving up if the path does not exist — there is
+        // nothing to remove and no reason to rewrite the file.
+        const chain = [doc];
+        let node = doc;
+        for (let i = 0; i < parts.length - 1; i++) {
+            const next = node[parts[i]];
+            if (typeof next !== "object" || next === null)
+                return true;
+            node = next;
+            chain.push(node);
+        }
+        if (!(parts[parts.length - 1] in node))
+            return true;
+        delete node[parts[parts.length - 1]];
+
+        // Prune sections that are now empty, so removing the only override in a
+        // group does not leave `"bar": {}` behind. A file that accumulates empty
+        // objects is one nobody will believe is "no overrides".
+        for (let i = chain.length - 1; i > 0; i--) {
+            if (Object.keys(chain[i]).length > 0)
+                break;
+            delete chain[i - 1][parts[i - 1]];
+        }
+
+        return root.write(doc);
+    }
+
+    function write(doc: var): bool {
+        root.saving = true;
+        // Two-space indent and a trailing newline: this file is meant to be
+        // opened in an editor, and a settings panel should not turn it into one
+        // long line the moment it is used.
+        file.setText(JSON.stringify(doc, null, 2) + "\n");
+        root.saving = false;
+        return true;
+    }
+
+    // The value in EFFECT for a dotted key — the override if there is one, the
+    // shipped default otherwise. Read straight off Config rather than out of the
+    // file, which is the difference between "what is set" and "what is in use".
+    //
+    // Reactive, despite being a function: Qt tracks the property reads that
+    // happen while a binding evaluates, including inside a call, so a row bound
+    // to this updates when the config file reloads.
+    function resolve(key: string): var {
+        let node = Config;
+        for (const p of key.split(".").filter(p => p !== "")) {
+            if (node === undefined || node === null)
+                return undefined;
+            node = node[p];
+        }
+        return node;
+    }
+
+    // Whether a key currently has an override, for a panel that wants to show
+    // which settings differ from the defaults.
+    function has(key: string): bool {
+        const doc = root.read();
+        if (doc === null)
+            return false;
+        let node = doc;
+        for (const p of key.split(".").filter(p => p !== "")) {
+            if (typeof node !== "object" || node === null || !(p in node))
+                return false;
+            node = node[p];
+        }
+        return true;
+    }
+}

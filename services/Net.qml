@@ -1,0 +1,304 @@
+pragma Singleton
+
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+// Networking via nmcli.
+//
+// Everything a person actually does with wifi: join a new protected network,
+// reconnect to a known one, disconnect, forget, and turn the radio off.
+//
+// It used to stop at "connect to something NetworkManager already has a profile
+// for", on the grounds that groot is wired and a passphrase field inside a layer
+// surface on a host driven over a game stream was a bad idea. That is still true
+// OF GROOT and false of everywhere else — most machines running this are on
+// wifi, and a wifi panel that cannot join a network is a status icon with extra
+// steps.
+//
+// The scan is demand-driven: it runs while the popout is open, because scanning
+// costs a radio sweep and there is usually nothing to look at.
+//
+// nmcli is used with -t (terse) and explicit -f fields throughout, never the
+// human-readable output — that shape is stable, where column widths are not.
+
+Singleton {
+    id: root
+
+    property string ethernet: ""      // connection name, "" when down
+    property string wifi: ""          // SSID, "" when not connected
+    property string device: ""        // the wifi interface, for disconnect
+    property string wiredDevice: ""   // the ethernet interface
+
+    // Addresses, per interface. The wired panel offers nothing to click, so
+    // these are the whole reason to open it — and they are the answer to the
+    // question anyone actually has about a connection.
+    //
+    // One of each. An interface with SLAAC and privacy extensions carries three
+    // or four IPv6 addresses and only one of them answers "what is my address":
+    // the temporary ones are deliberately short-lived, and a panel listing all
+    // four is a panel nobody can read at a glance.
+    property string wiredV4: ""
+    property string wiredV6: ""
+    property string wifiV4: ""
+    property string wifiV6: ""
+
+    // Negotiated link speed in Mb/s, 0 when unknown. Cheap to read and worth
+    // showing: a gigabit port that has quietly negotiated 100 is a real fault
+    // that nothing else on the desktop would ever mention.
+    property int wiredSpeed: 0
+    property int strength: 0          // 0-100
+    property bool wifiEnabled: false
+    property bool scanning: false
+
+    // An action is in flight. The panel disables itself rather than queueing
+    // clicks, because nmcli calls that overlap fight over the same device.
+    property bool busy: false
+
+    // The last failure, shown verbatim. nmcli's messages are the useful ones —
+    // "Secrets were required, but not provided" is what a wrong passphrase looks
+    // like, and paraphrasing it would only lose information.
+    property string error: ""
+
+    // SSIDs NetworkManager already has a profile for. Worth distinguishing: a
+    // saved network joins on one click, an unsaved secured one needs a
+    // passphrase, and only a saved one can be forgotten.
+    property var saved: ({})
+
+    readonly property bool connected: root.ethernet !== "" || root.wifi !== ""
+
+    readonly property alias networks: found
+
+    ListModel {
+        id: found
+    }
+
+    function isSaved(ssid: string): bool {
+        return root.saved[ssid] === true;
+    }
+
+    // One glyph per indicator, because there are two indicators now. The old
+    // single icon had to answer "what am I connected by" before it could answer
+    // anything else, which is why wired machines got a permanently green icon
+    // and wireless ones got no way to see the cable.
+    function wifiIcon(): string {
+        if (!root.wifiEnabled || root.wifi === "")
+            return "wifi_off";
+        if (root.strength > 66)
+            return "wifi";
+        if (root.strength > 33)
+            return "wifi_2_bar";
+        return "wifi_1_bar";
+    }
+
+    function wiredIcon(): string {
+        return root.ethernet !== "" ? "lan" : "portable_wifi_off";
+    }
+
+    Process {
+        id: status
+        running: true
+        command: ["bash", "-c", `
+            dev=$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2=="wifi"{print $1; exit}')
+            wired=$(nmcli -t -f DEVICE,TYPE device status | awk -F: '$2=="ethernet"{print $1; exit}')
+            eth=$(nmcli -t -f TYPE,STATE,CONNECTION device status | awk -F: '$1=="ethernet" && $2 ~ /^connected/{print $3; exit}')
+            # NetworkManager is not always the one holding the wire. A machine
+            # using systemd-networkd for a static wired address reports that
+            # interface as "unmanaged", and asking only nmcli would call a
+            # plugged-in, routing, perfectly online machine "offline". If nmcli
+            # has no ethernet, believe the routing table instead — unless the
+            # default route is over the wifi device, which is not ethernet.
+            if [ -z "$eth" ]; then
+                rdev=$(ip route show default 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "dev") {print $(i + 1); exit}}')
+                [ -n "$rdev" ] && [ "$rdev" != "$dev" ] && eth="$rdev"
+            fi
+            wifi=$(nmcli -t -f ACTIVE,SSID,SIGNAL device wifi list --rescan no 2>/dev/null | awk -F: '$1=="yes"{print $2":"$3; exit}')
+
+            # If nmcli named no ethernet device, the routing fallback above may
+            # still have named an interface, and it is what to ask for an
+            # address either way.
+            [ -z "$wired" ] && wired="$rdev"
+
+            # Addresses from the kernel rather than from nmcli, which only knows
+            # about interfaces it manages — the same reason the fallback exists.
+            #
+            # Scope "global" drops link-local and loopback -- and no backticks
+            # in here, however much a shell comment wants them: this whole block
+            # is a JS template literal, and one would end it early.
+            #
+            # For IPv6 the first
+            # address that is neither temporary nor deprecated is the stable
+            # one; if every candidate is temporary, take the first rather than
+            # showing nothing at all.
+            addr4() { [ -n "$1" ] && ip -o -4 addr show dev "$1" scope global 2>/dev/null | awk '{print $4; exit}'; }
+            addr6() {
+                [ -n "$1" ] || return 0
+                out=$(ip -o -6 addr show dev "$1" scope global 2>/dev/null)
+                stable=$(printf '%s\\n' "$out" | grep -v temporary | grep -v deprecated | awk '{print $4; exit}')
+                [ -n "$stable" ] && printf '%s' "$stable" || printf '%s\\n' "$out" | awk '{print $4; exit}'
+            }
+            speed=$([ -n "$wired" ] && cat "/sys/class/net/$wired/speed" 2>/dev/null || echo "")
+            enabled=$(nmcli -t radio wifi 2>/dev/null)
+            # Saved wireless profiles, one per line, after the counts above.
+            printf '%s\\n%s\\n%s\\n%s\\n' "$eth" "$wifi" "$dev" "$enabled"
+            printf '%s\\n%s\\n%s\\n' "$wired" "$(addr4 "$wired")" "$(addr6 "$wired")"
+            printf '%s\\n%s\\n%s\\n' "$(addr4 "$dev")" "$(addr6 "$dev")" "\${speed:-}"
+            nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F: '$2=="802-11-wireless"{print $1}'
+        `]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.split("\n");
+                root.ethernet = (lines[0] ?? "").trim();
+
+                const w = (lines[1] ?? "").trim();
+                if (w) {
+                    const sep = w.lastIndexOf(":");
+                    root.wifi = w.slice(0, sep);
+                    root.strength = parseInt(w.slice(sep + 1)) || 0;
+                } else {
+                    root.wifi = "";
+                    root.strength = 0;
+                }
+
+                root.device = (lines[2] ?? "").trim();
+                root.wifiEnabled = (lines[3] ?? "").trim() === "enabled";
+
+                root.wiredDevice = (lines[4] ?? "").trim();
+                root.wiredV4 = (lines[5] ?? "").trim();
+                root.wiredV6 = (lines[6] ?? "").trim();
+                root.wifiV4 = (lines[7] ?? "").trim();
+                root.wifiV6 = (lines[8] ?? "").trim();
+                root.wiredSpeed = parseInt((lines[9] ?? "").trim()) || 0;
+
+                // Everything from the eleventh line on is a saved profile name.
+                const known = {};
+                for (let i = 10; i < lines.length; i++) {
+                    const name = lines[i].trim();
+                    if (name)
+                        known[name] = true;
+                }
+                root.saved = known;
+            }
+        }
+    }
+
+    Timer {
+        interval: 10000
+        repeat: true
+        running: true
+        onTriggered: if (!status.running)
+            status.running = true
+    }
+
+    function refresh(): void {
+        if (!status.running)
+            status.running = true;
+    }
+
+    function scan(): void {
+        if (scanProc.running)
+            return;
+        root.scanning = true;
+        scanProc.running = true;
+    }
+
+    Process {
+        id: scanProc
+        running: false
+        command: ["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "yes"]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                found.clear();
+                const seen = {};
+                for (const line of text.split("\n")) {
+                    if (!line.trim())
+                        continue;
+                    const f = line.split(":");
+                    const ssid = f[1] ?? "";
+                    // Hidden networks have no SSID and nothing to click on.
+                    // Duplicates are the same network on several bands.
+                    if (!ssid || seen[ssid])
+                        continue;
+                    seen[ssid] = true;
+                    found.append({
+                        active: f[0] === "yes",
+                        ssid: ssid,
+                        signal: parseInt(f[2]) || 0,
+                        secured: (f[3] ?? "").trim() !== ""
+                    });
+                }
+                root.scanning = false;
+            }
+        }
+    }
+
+    // --- Actions --------------------------------------------------------------
+    //
+    // One Process for all of them, with the command swapped before each run.
+    // They are mutually exclusive by nature — you cannot forget a network while
+    // connecting to it — and `busy` is what the panel reads to stop you trying.
+
+    function run(args: var): void {
+        if (root.busy)
+            return;
+        root.error = "";
+        root.busy = true;
+        action.command = args;
+        action.running = true;
+    }
+
+    Process {
+        id: action
+        running: false
+
+        stderr: StdioCollector {
+            onStreamFinished: {
+                const message = text.trim();
+                if (message)
+                    root.error = message.replace(/^Error:\s*/i, "");
+            }
+        }
+
+        onExited: code => {
+            root.busy = false;
+            if (code !== 0 && root.error === "")
+                root.error = `nmcli exited ${code}`;
+            root.refresh();
+            // Re-scan so the list reflects what just happened — a forgotten
+            // network loses its saved marker, a joined one becomes active.
+            root.scan();
+        }
+    }
+
+    // An empty password means "use the saved profile", which is what a known
+    // network needs and what an open one needs. NetworkManager stores the
+    // passphrase itself on first success, so this is asked once per network.
+    function connect(ssid: string, password: string): void {
+        root.run(password ? ["nmcli", "device", "wifi", "connect", ssid, "password", password] : ["nmcli", "device", "wifi", "connect", ssid]);
+    }
+
+    // The DEVICE rather than the connection: disconnecting the device is what
+    // stops NetworkManager immediately reconnecting to the same network, which
+    // `connection down` does not.
+    function disconnect(): void {
+        if (root.device === "")
+            return;
+        root.run(["nmcli", "device", "disconnect", root.device]);
+    }
+
+    // Deletes the stored profile and its passphrase, so the network has to be
+    // joined from scratch next time.
+    function forget(ssid: string): void {
+        root.run(["nmcli", "connection", "delete", ssid]);
+    }
+
+    function setWifiEnabled(on: bool): void {
+        root.run(["nmcli", "radio", "wifi", on ? "on" : "off"]);
+    }
+
+    function clearError(): void {
+        root.error = "";
+    }
+}
