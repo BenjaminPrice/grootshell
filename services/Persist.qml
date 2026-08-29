@@ -54,6 +54,7 @@ Singleton {
             // explicit values are for the images it reads wrong, and there is no
             // way to know which those are without looking at one.
             property string themeMode: "auto"
+
         }
     }
 }

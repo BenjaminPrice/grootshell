@@ -93,9 +93,94 @@ Singleton {
         }
     }
 
+    // Writes a value into the LIVE config object, without touching the file.
+    //
+    // Config's FileView has no onAdapterUpdated handler — unlike Persist's — so
+    // assigning to its adapter changes what the shell is using and writes
+    // nothing. That asymmetry is what makes reverting possible at all.
+    function applyLive(key: string, value: var): void {
+        const parts = key.split(".").filter(p => p !== "");
+        if (parts.length === 0)
+            return;
+        let node = Config;
+        for (let i = 0; i < parts.length - 1; i++) {
+            node = node?.[parts[i]];
+            if (node === undefined || node === null)
+                return;
+        }
+        try {
+            node[parts[parts.length - 1]] = value;
+        } catch (e) {
+            console.warn("grootshell: could not revert", key, "live:", e);
+        }
+    }
+
+    // What each overridden setting was BEFORE it was overridden, keyed by its
+    // dotted config path — a plain JSON file of its own, in the state directory.
+    //
+    // Its own file rather than a key in state.json: that one is a JsonAdapter,
+    // and assigning a whole object through a var property on one does not
+    // reliably persist. The blocking read-modify-write above already works and
+    // is the same shape, so this reuses it rather than fighting the adapter.
+    //
+    // State, not config: it is a record of what this machine did, it has no
+    // shipped default, and nobody should ever have to look at it.
+    property FileView defaultsFile: FileView {
+        id: defaultsFile
+
+        path: `${Quickshell.stateDir}/setting-defaults.json`
+        printErrors: false
+        blockLoading: true
+        blockWrites: true
+        atomicWrites: true
+    }
+
+    function readDefaults(): var {
+        defaultsFile.reload();
+        const raw = defaultsFile.text();
+        if (!raw || raw.trim() === "")
+            return ({});
+        try {
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : ({});
+        } catch (e) {
+            return ({});
+        }
+    }
+
+    // Recorded at the moment a key is FIRST overridden, because at that instant
+    // the live value is by definition the shipped default.
+    //
+    // That beats writing defaults into shell.json, which would freeze them — the
+    // config file stays sparse, so a default that improves upstream still
+    // reaches you, and this only exists to answer "what was it before".
+    function rememberDefault(key: string): void {
+        if (root.has(key))
+            return;
+        const known = root.readDefaults();
+        if (key in known)
+            return;
+        known[key] = root.resolve(key);
+        defaultsFile.setText(JSON.stringify(known, null, 2) + "\n");
+    }
+
+    function forgetDefault(key: string): var {
+        const known = root.readDefaults();
+        if (!(key in known))
+            return undefined;
+        const value = known[key];
+        delete known[key];
+        defaultsFile.setText(JSON.stringify(known, null, 2) + "\n");
+        return value;
+    }
+
     // `set("bar.height", 60)` — a dotted path, so callers name the setting the
     // same way they read it. Intermediate objects are created as needed.
     function set(key: string, value: var): bool {
+        // Before anything is written: the live value right now is the default,
+        // because nothing has overridden it yet.
+        root.rememberDefault(key);
+
         const doc = root.read();
         if (doc === null) {
             console.warn("grootshell: refusing to write shell.json, which is not readable as JSON — fix or remove it first");
@@ -115,14 +200,38 @@ Singleton {
         }
         node[parts[parts.length - 1]] = value;
 
-        return root.write(doc);
+        // Apply it to the live config as well as writing it.
+        //
+        // Not belt and braces — the file alone does not take effect. Config
+        // re-reads shell.json through a watcher, and these writes are ATOMIC:
+        // the file is replaced rather than edited, so the inode changes and a
+        // watch on the path does not see it. Measured: after a write the live
+        // value was unchanged four seconds later, with or without an explicit
+        // reload, whether or not the file existed beforehand.
+        //
+        // Writing the file is what makes the setting survive a restart; this is
+        // what makes it take effect now. `unset` does the same thing with the
+        // remembered default, which is where this mechanism was proven.
+        if (!root.write(doc))
+            return false;
+        root.applyLive(key, value);
+        return true;
     }
 
     // Remove an override, so the key goes back to following the shipped default.
     // A settings panel needs this as much as it needs `set` — without it, "reset
     // to default" can only write today's default as a permanent override, which
     // is the very thing this service exists to avoid.
+    //
+    // Two halves, and both are needed. Removing the key from the file is what
+    // makes future defaults apply; pushing the remembered default into the live
+    // config is what makes the shell change back NOW, because JsonAdapter never
+    // un-merges a key that disappears.
     function unset(key: string): bool {
+        const previous = root.forgetDefault(key);
+        if (previous !== undefined)
+            root.applyLive(key, previous);
+
         const doc = root.read();
         if (doc === null)
             return false;
