@@ -81,7 +81,7 @@ want on a key: one bind, no state to track.
 | `launcher toggle` | Application launcher |
 | `launcher open` / `launcher close` | Unconditional, for scripts that need a known state |
 | `island toggle` | The centre panel, on whichever tab was last open |
-| `island show <tab>` | Opens straight to a tab: `dashboard`, `media`, `performance`, `wallpaper`, `weather` |
+| `island tab <name>` | Opens straight to a tab: `dashboard`, `media`, `performance`, `wallpaper`, `weather` |
 | `notifications toggle` | Notification centre |
 | `clipboard toggle` | Clipboard history (needs `cliphist`) |
 | `network toggle` | Wi-Fi panel — join, forget, radio on/off |
@@ -183,8 +183,8 @@ bind =      , Print,      exec, grootshell-ipc call screenshot region
 bind = SUPER, Print,      exec, grootshell-ipc call screenshot screen
 
 # Optional: straight to a tab, skipping the one you left open
-bind = SUPER, M,          exec, grootshell-ipc call island show media
-bind = SUPER SHIFT, P,    exec, grootshell-ipc call island show performance
+bind = SUPER, M,          exec, grootshell-ipc call island tab media
+bind = SUPER SHIFT, P,    exec, grootshell-ipc call island tab performance
 ```
 
 SUPER+slash for the cheatsheet is the one worth keeping wherever you put
@@ -310,8 +310,15 @@ found and the bind fails silently. Use an absolute path in the bind to confirm.
 
 **4. The target or function name is wrong.** IPC calls to a name that does not
 exist fail quietly by design. `grootshell-ipc show` lists what is actually
-registered; compare it against your bind, character for character. `island show
-media` is right, `island tab media` is not.
+registered; compare it against your bind, character for character.
+
+One trap worth knowing, because its symptom points at the wrong thing: a
+function whose name matches a `qs ipc` subcommand — `show`, `call`, `list` — is
+shadowed by it. The CLI matches its own subcommand first, so `call island show
+media` prints the target listing and rejects `media` as an unexpected argument.
+The complaint comes from `qs`, not from the shell, so nothing in the shell's log
+mentions it. Do not name IPC functions after subcommands; `ipc show` lists what
+is registered, which is how you find one that is.
 
 If the call reaches the shell and still nothing happens, that is a bug rather
 than configuration — the shell logs to its journal:

@@ -433,9 +433,15 @@ ShellRoot {
         function toggle(): void {
             ShellState.toggle("island");
         }
-        // `grootshell-ipc call island show media` — jump straight to a tab
+        // `grootshell-ipc call island tab media` — jump straight to a tab
         // rather than opening and then clicking.
-        function show(tab: string): void {
+        //
+        // Named `tab` and not `show`, which is what it was: `show` is also a
+        // subcommand of `qs ipc`, and the CLI matches the subcommand first. The
+        // function was unreachable — `call island show media` answered by
+        // printing the target listing, and `qs` was the one rejecting the
+        // argument, so nothing in the shell's log said a word about it.
+        function tab(tab: string): void {
             ShellState.islandTab = tab;
             ShellState.open("island");
         }
