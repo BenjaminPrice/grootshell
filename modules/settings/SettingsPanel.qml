@@ -184,6 +184,15 @@ Panel {
                     min: 0,
                     max: 60,
                     step: 1
+                },
+                {
+                    key: "border.padding",
+                    label: "Window spacing",
+                    detail: "How far windows sit off the frame. -1 follows the compositor's inner gaps, so the frame is spaced like a neighbouring window",
+                    type: "int",
+                    min: -1,
+                    max: 40,
+                    step: 1
                 }
             ]
         },
