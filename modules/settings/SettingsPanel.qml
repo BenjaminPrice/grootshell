@@ -376,7 +376,11 @@ Panel {
             spacing: Appearance.spacing.lg
 
             ColumnLayout {
+                // Capped as well as preferred. A layout honours a child's
+                // minimum over the parent's preference, and this rail was
+                // taking the whole panel.
                 Layout.preferredWidth: 150
+                Layout.maximumWidth: 150
                 Layout.alignment: Qt.AlignTop
                 spacing: Appearance.spacing.xs
 
@@ -423,6 +427,8 @@ Panel {
             }
 
             Flickable {
+                id: scroller
+
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -434,7 +440,14 @@ Panel {
 
                     readonly property var group: root.groups[root.category] ?? root.groups[0]
 
-                    width: parent.width
+                    // The FLICKABLE's width, not `parent.width`.
+                    //
+                    // A Flickable reparents its children onto its contentItem,
+                    // whose width is the scrollable content width and defaults to
+                    // zero — so `parent.width` sized this column to nothing and
+                    // the settings rendered at zero width. The rows were all
+                    // there; none of them were visible.
+                    width: scroller.width
                     spacing: Appearance.spacing.xs
 
                     StyledText {
