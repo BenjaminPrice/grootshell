@@ -1,5 +1,7 @@
 ![GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)
 
+https://github.com/user-attachments/assets/e0c1ef5f-8110-4ea0-9b77-271bc30eac96
+
 # grootshell
 
 A [Quickshell](https://quickshell.outfoxxed.me/) desktop shell for Hyprland,
