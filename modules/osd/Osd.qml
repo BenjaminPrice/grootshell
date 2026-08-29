@@ -243,7 +243,7 @@ Item {
 
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        width: Config.border.thickness + 4
+        width: Hypr.frameThickness + 4
         height: panel.span
         hoverEnabled: true
         // Hover only. This strip is live whenever the shell is, and it sits on

@@ -81,13 +81,13 @@ ShellRoot {
             // written to — it is re-evaluated. Declaring this readonly makes the
             // Behavior below a load-time error rather than a no-op, which takes
             // the whole shell down.
-            property int barZone: GameMode.enabled ? 0 : Config.bar.height + Config.border.thickness
+            property int barZone: GameMode.enabled ? 0 : Config.bar.height + Hypr.frameThickness
 
             // How tall the bar's SURFACE is, as opposed to how much it reserves.
             //
             // The two are no longer the same. A tiled window does not begin at
             // the bottom of the reserved strip — the compositor's gaps_out and
-            // its window border push it down another Config.bar.gap — so the
+            // its window border push it down another Hypr.windowInset — so the
             // band of wallpaper a pill actually floats in is that much taller
             // than the strip. Centring pills on the strip alone put every one of
             // them high by half of it: about 7px of air above and 21 below.
@@ -96,7 +96,7 @@ ShellRoot {
             // of it, is what lets the pills sit where they look right without a
             // magic offset — and without being clipped by a surface that ends
             // before they do.
-            readonly property int barSurface: GameMode.enabled ? 0 : scope.barZone + Config.bar.gap
+            readonly property int barSurface: GameMode.enabled ? 0 : scope.barZone + Hypr.windowInset
 
             // Where anything hanging from the top of the screen starts: level
             // with the top of a tiled window, so a side panel and the windows

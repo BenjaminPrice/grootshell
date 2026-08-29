@@ -32,7 +32,7 @@ Item {
 
     required property ShellScreen screen
 
-    readonly property int inset: Config.border.thickness
+    readonly property int inset: Hypr.frameThickness
 
     clip: true
 

@@ -22,7 +22,7 @@ import qs.services
 Item {
     id: root
 
-    readonly property int thickness: Config.border.thickness
+    readonly property int thickness: Hypr.frameThickness
     readonly property int rounding: Config.border.rounding
 
     // Game mode collapses the frame to nothing. It is chrome, and during a game

@@ -79,7 +79,7 @@ Item {
     // docked panel grows from the screen edge — the island grows from the bottom
     // of the bar, which is already frame-coloured, so it overlaps nothing and
     // sets this to 0.
-    property int frameThickness: Config.border.thickness
+    property int frameThickness: Hypr.frameThickness
     readonly property bool horizontal: edge === "bottom" || edge === "top"
 
     default property alias content: inner.data

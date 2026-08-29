@@ -86,8 +86,8 @@ Item {
 
     // Vertically centred in the band of wallpaper between the frame's top edge
     // and where a tiled window begins — the same optical centring the other
-    // pills get from the bar surface. See Config.bar.gap.
-    readonly property int pillTop: Config.border.thickness + Math.round((Config.bar.height + Config.bar.gap - root.pillHeight) / 2)
+    // pills get from the bar surface. See Hypr.windowInset.
+    readonly property int pillTop: Hypr.frameThickness + Math.round((Config.bar.height + Hypr.windowInset - root.pillHeight) / 2)
 
     // --- Expanded: the panel -------------------------------------------------
     //
@@ -142,7 +142,7 @@ Item {
     readonly property int panelWidth: Math.round(root.size.w * Appearance.font.scale)
     // Plus the band it is buried in, so the CONTENT gets the height the tab
     // asked for rather than that minus the overlap.
-    readonly property int panelHeight: Math.round(root.size.h * Appearance.font.scale) + Config.border.thickness
+    readonly property int panelHeight: Math.round(root.size.h * Appearance.font.scale) + Hypr.frameThickness
 
     // --- The morph ----------------------------------------------------------
     implicitWidth: Math.round(root.lerp(root.pillWidth, root.panelWidth, root.progress))
@@ -206,7 +206,7 @@ Item {
     // Positioned against the underside of the frame's top band, which is a fixed
     // line on screen: in this item's own coordinates it moves as the panel rises.
     readonly property int fillet: Math.round(Appearance.rounding.large * root.progress)
-    readonly property int filletY: Config.border.thickness - root.topOffset
+    readonly property int filletY: Hypr.frameThickness - root.topOffset
 
     InverseCorner {
         visible: root.fillet > 0
@@ -340,7 +340,7 @@ Item {
         id: body
 
         anchors.fill: parent
-        anchors.topMargin: Config.border.thickness + Appearance.padding.lg
+        anchors.topMargin: Hypr.frameThickness + Appearance.padding.lg
         anchors.leftMargin: Appearance.padding.lg
         anchors.rightMargin: Appearance.padding.lg
         anchors.bottomMargin: Appearance.padding.lg

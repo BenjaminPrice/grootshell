@@ -26,7 +26,7 @@ DockedPanel {
 
     // Half the usable height, which is the screen less the bar and the bottom
     // border.
-    span: Math.round(((parent?.height ?? 1080) - Config.bar.height - Config.border.thickness * 2) * 0.5)
+    span: Math.round(((parent?.height ?? 1080) - Config.bar.height - Hypr.frameThickness * 2) * 0.5)
 
     Translator {
         anchors.fill: parent

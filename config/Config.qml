@@ -89,22 +89,6 @@ Singleton {
                 // is that, and everything else is padded out to match.
                 property int pillHeight: 40
 
-                // The space between the bottom of the bar's reserved strip and
-                // where a tiled window actually begins: the compositor's
-                // gaps_out plus its window border.
-                //
-                // Mirrored here because the shell cannot ask for either, and the
-                // pills need it to sit right. They float in the band of
-                // wallpaper between the frame's top edge and the first window,
-                // and that band is this much taller than the reserved strip —
-                // so centring them on the strip alone puts every pill high by
-                // half of this. Measured on groot: reserved 64, first window at
-                // 78.
-                //
-                // Same coupling as border.thickness against gaps_out below, and
-                // the same caveat: change it in hyprland.lua and change it here.
-                property int gap: 14
-
                 // Tray items that publish no Activate method, mapped to what
                 // left-clicking them should do instead.
                 //
@@ -124,10 +108,20 @@ Singleton {
             }
 
             component Border: JsonObject {
-                // Matches gaps_out in the nixos repo's hyprland.lua. If these
-                // disagree, tiled windows either overlap the frame or float
-                // inside it with a dead gap.
-                property int thickness: 10
+                // 0 means "however thick the compositor's gaps are", which is
+                // the only answer that is always right: the frame has to fit
+                // inside the space Hyprland already leaves around a window, and
+                // that number lives in the compositor's config.
+                //
+                // It used to be mirrored here — and said 10 while gaps_out said
+                // 12, so there was a 2px band of wallpaper between the frame and
+                // every window, and the comment claiming they matched had been
+                // wrong for as long as it had been there. services/Hypr.qml asks
+                // now.
+                //
+                // A positive value overrides that, for a frame deliberately
+                // thinner than the gap. Thicker will be drawn over by windows.
+                property int thickness: 0
                 property int rounding: 25
             }
 
