@@ -53,7 +53,17 @@ Item {
 
         ColumnLayout {
             id: label
+
+            // Capped, not merely preferred.
+            //
+            // A wrapping Text reports its full UNWRAPPED width as its minimum,
+            // and a layout honours a minimum over a preference — so any row with
+            // a detail line pushed this column as wide as that sentence and
+            // squeezed the control beside it down to nothing. The font-scale
+            // slider collapsed to a handle jammed against its own readout while
+            // the rows below it, which had no detail, were fine.
             Layout.preferredWidth: 260
+            Layout.maximumWidth: 260
             spacing: 0
 
             RowLayout {
