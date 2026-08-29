@@ -197,14 +197,28 @@ Singleton {
     }
 
     function locate(): void {
-        if (!root.configured) {
+        // Read the location DIRECTLY rather than consulting `configured`, which
+        // is a binding on it.
+        //
+        // When `location` changes, QML schedules both that binding's
+        // re-evaluation and this handler, and the order between them is not
+        // defined. The handler ran first, saw a `configured` that was still
+        // false from a moment ago, returned — and nothing ever tried again. The
+        // symptom was a tab stuck on "Fetching the forecast…" with no error,
+        // because "never started" and "still waiting" look identical from
+        // outside.
+        //
+        // Deriving the answer here from the value the signal is about removes
+        // the ordering question instead of trying to win the race.
+        const name = root.location.trim();
+        if (name === "") {
             root.located = false;
             root.error = "";
             return;
         }
         root.loading = true;
         root.error = "";
-        root.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(root.location.trim())}&count=1&language=en&format=json`, data => {
+        root.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=en&format=json`, data => {
             const hit = (data.results ?? [])[0];
             if (!hit) {
                 root.loading = false;

@@ -41,6 +41,23 @@ Item {
 
     readonly property bool hasData: Weather.current !== null && Weather.daily.length > 0
 
+    // A stand-in for `current` until the first fetch lands.
+    //
+    // The panel below is hidden until there is data, but `visible: false` does
+    // not stop a binding evaluating — so every reading in the "now" column threw
+    // a TypeError on null for the second or two before the network answered.
+    // Harmless, and a fistful of warnings in the journal that would train anyone
+    // reading it to skim past real ones.
+    readonly property var now: Weather.current ?? ({
+            temperature: 0,
+            apparent: 0,
+            humidity: 0,
+            precipitation: 0,
+            code: 0,
+            wind: 0,
+            isDay: true
+        })
+
     // --- Nothing to show ----------------------------------------------------
     EmptyState {
         anchors.fill: parent
@@ -117,7 +134,7 @@ Item {
 
                 Icon {
                     Layout.alignment: Qt.AlignHCenter
-                    text: Weather.icon(Weather.current.code, Weather.current.isDay)
+                    text: Weather.icon(root.now.code, root.now.isDay)
                     color: Theme.accent
                     filled: true
                     size: Math.round(Appearance.font.size.xxl * 1.6)
@@ -125,21 +142,21 @@ Item {
 
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter
-                    text: Weather.temp(Weather.current.temperature) + Weather.tempUnit.slice(1)
+                    text: Weather.temp(root.now.temperature) + Weather.tempUnit.slice(1)
                     color: Theme.text
                     font.pixelSize: Math.round(Appearance.font.size.xxl * 1.1)
                 }
 
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter
-                    text: Weather.describe(Weather.current.code)
+                    text: Weather.describe(root.now.code)
                     color: Theme.textSecondary
                     font.pixelSize: Appearance.font.size.sm
                 }
 
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter
-                    text: `Feels like ${Weather.temp(Weather.current.apparent)}`
+                    text: `Feels like ${Weather.temp(root.now.apparent)}`
                     color: Theme.textMuted
                     font.pixelSize: Appearance.font.size.xs
                 }
@@ -154,17 +171,17 @@ Item {
 
                     Reading {
                         glyph: "air"
-                        value: `${Math.round(Weather.current.wind)} ${Weather.windUnit}`
+                        value: `${Math.round(root.now.wind)} ${Weather.windUnit}`
                     }
 
                     Reading {
                         glyph: "humidity_percentage"
-                        value: `${Math.round(Weather.current.humidity)}%`
+                        value: `${Math.round(root.now.humidity)}%`
                     }
 
                     Reading {
                         glyph: "rainy"
-                        value: `${Weather.current.precipitation.toFixed(1)} ${Weather.precipUnit}`
+                        value: `${root.now.precipitation.toFixed(1)} ${Weather.precipUnit}`
                     }
                 }
 
