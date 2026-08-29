@@ -32,6 +32,22 @@ Singleton {
 
     property string islandTab: Config.island.defaultTab
 
+    // Which settings group to show when the panel next opens, by title.
+    //
+    // A title rather than the rail index it becomes, because the caller is
+    // somewhere else in the shell asking for "Weather" — it should not have to
+    // know that Weather is currently seventh, and should not silently start
+    // opening Media the day a group is inserted above it. Cleared once acted on,
+    // so opening the panel any other way lands where you left it.
+    property string settingsGroup: ""
+
+    // Open the settings panel on a particular group. Used by the empty states
+    // that exist because a setting has not been filled in.
+    function openSettings(group: string): void {
+        root.settingsGroup = group;
+        root.open("settings");
+    }
+
     // "Move the desktop switcher's selection", emitted by the SUPER+Tab IPC
     // handler and acted on by the panel.
     //

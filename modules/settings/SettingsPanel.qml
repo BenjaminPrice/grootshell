@@ -33,6 +33,21 @@ Panel {
     radius: Appearance.rounding.large
     surface: Theme.layer(2)
 
+    // Honour a request to open on a particular group, then clear it so the next
+    // opening lands where the user left off rather than repeating the jump.
+    //
+    // Keyed on `open` rather than on settingsGroup changing, because the request
+    // is set immediately before the panel opens and the order of the two is not
+    // guaranteed — watching the group would miss a request that arrived first.
+    onOpenChanged: {
+        if (!root.open || ShellState.settingsGroup === "")
+            return;
+        const wanted = root.groups.findIndex(g => g.title === ShellState.settingsGroup);
+        if (wanted >= 0)
+            root.category = wanted;
+        ShellState.settingsGroup = "";
+    }
+
     implicitWidth: Math.round(880 * Appearance.font.scale)
     implicitHeight: Math.round(620 * Appearance.font.scale)
 

@@ -25,6 +25,13 @@ Item {
     property string title
     property string detail
 
+    // Optional. When an empty state is empty because of something the user can
+    // fix from inside the shell, offer the fix here rather than only describing
+    // it — an instruction that ends in a button is one someone will follow.
+    // Left unset, nothing is drawn and this is the plain empty state it was.
+    property string action
+    signal actionTriggered
+
     implicitWidth: column.implicitWidth
     implicitHeight: column.implicitHeight
 
@@ -57,6 +64,42 @@ Item {
             color: Theme.textMuted
             font.pixelSize: Appearance.font.size.xs
             horizontalAlignment: Text.AlignHCenter
+        }
+
+        Rectangle {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: Appearance.spacing.sm
+
+            visible: root.action !== ""
+            implicitWidth: actionText.implicitWidth + Appearance.padding.lg * 2
+            implicitHeight: actionText.implicitHeight + Appearance.padding.sm * 2
+            radius: Appearance.rounding.full
+            color: actionHover.containsMouse ? Theme.accent : Theme.accentContainer
+
+            Behavior on color {
+                enabled: Appearance.anim.enabled
+                ColorAnimation {
+                    duration: Appearance.anim.fast
+                }
+            }
+
+            StyledText {
+                id: actionText
+
+                anchors.centerIn: parent
+                text: root.action
+                color: actionHover.containsMouse ? Theme.onAccent : Theme.text
+                font.pixelSize: Appearance.font.size.sm
+            }
+
+            MouseArea {
+                id: actionHover
+
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.actionTriggered()
+            }
         }
     }
 }

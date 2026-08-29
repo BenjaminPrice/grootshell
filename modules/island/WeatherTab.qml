@@ -64,10 +64,16 @@ Item {
         visible: !Weather.configured
         icon: "location_off"
         title: "No location set"
-        // The one place in the shell that tells you where its own config lives,
-        // because this is the only feature that cannot guess a default. A city
-        // picked for you is worse than none.
-        detail: `Put a place name in weather.location in\n${Config.configDir.replace(Quickshell.env("HOME"), "~")}/shell.json`
+        // This is the only feature in the shell that cannot guess a default — a
+        // city picked for you is worse than none — so it is the one empty state
+        // that is really a task. Offer to do it rather than only saying how:
+        // the panel that fixes this is two keystrokes away and nobody knows it.
+        //
+        // The file is still named, second, for anyone configuring the shell from
+        // outside it or setting up a machine they are not sitting at.
+        detail: `Set one in Settings, or put weather.location in\n${Config.configDir.replace(Quickshell.env("HOME"), "~")}/shell.json`
+        action: "Open settings"
+        onActionTriggered: ShellState.openSettings("Weather")
     }
 
     EmptyState {
