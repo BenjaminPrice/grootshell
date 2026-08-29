@@ -199,34 +199,94 @@ Item {
         id: sliderControl
 
         Item {
+            id: slider
+
             implicitHeight: 28
 
             readonly property real min: root.spec.min ?? 0
             readonly property real max: root.spec.max ?? 100
             readonly property real step: root.spec.step ?? 1
-            readonly property real current: Number(root.value ?? min)
-            readonly property real fraction: max > min ? Math.max(0, Math.min(1, (current - min) / (max - min))) : 0
+            readonly property real current: Number(root.value ?? slider.min)
+            readonly property real fraction: slider.max > slider.min ? Math.max(0, Math.min(1, (slider.current - slider.min) / (slider.max - slider.min))) : 0
 
             // Rounded to the step, then to the type. Writing 1.0500000000000003
             // into a config file is the sort of thing that makes a generated
             // file look untrustworthy.
             function quantise(f: real): var {
-                const raw = min + f * (max - min);
-                const snapped = Math.round(raw / step) * step;
-                const clamped = Math.max(min, Math.min(max, snapped));
+                const raw = slider.min + f * (slider.max - slider.min);
+                const snapped = Math.round(raw / slider.step) * slider.step;
+                const clamped = Math.max(slider.min, Math.min(slider.max, snapped));
                 return root.spec.type === "int" ? Math.round(clamped) : Math.round(clamped * 1000) / 1000;
             }
 
-            StyledText {
+            // The number is editable, and is the same value as the slider.
+            //
+            // A slider is good for "a bit more than that" and bad for "exactly
+            // 1.15", which is precisely what a scale factor wants. Neither is
+            // the master: dragging updates the field, typing moves the handle,
+            // because both are just views of the one config key.
+            Rectangle {
                 id: readout
+
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: 52
-                horizontalAlignment: Text.AlignRight
-                text: String(parent.current)
-                color: Theme.textSecondary
-                font.pixelSize: Appearance.font.size.xs
-                mono: true
+                implicitWidth: 58
+                implicitHeight: 26
+                radius: Appearance.rounding.small
+                color: entry.activeFocus ? Theme.surfaceContainerHighest : "transparent"
+                border.width: entry.activeFocus ? 1 : 0
+                border.color: Theme.accent
+
+                TextInput {
+                    id: entry
+
+                    anchors.fill: parent
+                    anchors.margins: Appearance.padding.xs
+                    horizontalAlignment: TextInput.AlignRight
+                    verticalAlignment: TextInput.AlignVCenter
+                    font.family: Appearance.font.family.mono
+                    font.pixelSize: Appearance.font.size.xs
+                    color: Theme.textSecondary
+                    selectionColor: Theme.accentContainer
+                    selectedTextColor: Theme.onAccentContainer
+                    // Digits, a decimal point and a leading minus. Rejecting the
+                    // rest at the keystroke beats validating a mess afterwards.
+                    validator: RegularExpressionValidator {
+                        regularExpression: /-?\d*\.?\d*/
+                    }
+
+                    Component.onCompleted: text = String(slider.current)
+
+                    // Follows the slider whenever it is not being typed into —
+                    // dragging with the caret parked in the field must not fight
+                    // the person holding the mouse.
+                    Connections {
+                        target: slider
+                        function onCurrentChanged(): void {
+                            if (!entry.activeFocus)
+                                entry.text = String(slider.current);
+                        }
+                    }
+
+                    function submit(): void {
+                        const n = parseFloat(entry.text);
+                        if (isNaN(n)) {
+                            // Unparseable goes back to what it was rather than
+                            // writing a NaN into the config file.
+                            entry.text = String(slider.current);
+                            return;
+                        }
+                        const clamped = Math.max(slider.min, Math.min(slider.max, n));
+                        const v = root.spec.type === "int" ? Math.round(clamped) : Math.round(clamped * 1000) / 1000;
+                        entry.text = String(v);
+                        if (v !== slider.current)
+                            root.commit(v);
+                    }
+
+                    onAccepted: submit()
+                    onActiveFocusChanged: if (!activeFocus)
+                        submit()
+                }
             }
 
             Rectangle {
@@ -240,14 +300,14 @@ Item {
                 color: Theme.surfaceContainerHighest
 
                 Rectangle {
-                    width: groove.width * parent.parent.fraction
+                    width: groove.width * slider.fraction
                     height: parent.height
                     radius: parent.radius
                     color: Theme.accent
                 }
 
                 Rectangle {
-                    x: groove.width * parent.parent.fraction - width / 2
+                    x: groove.width * slider.fraction - width / 2
                     anchors.verticalCenter: parent.verticalCenter
                     implicitWidth: 14
                     implicitHeight: 14
@@ -264,7 +324,7 @@ Item {
 
                     function apply(mouse): void {
                         const f = Math.max(0, Math.min(1, (mouse.x + 10) / groove.width));
-                        root.commit(groove.parent.quantise(f));
+                        root.commit(slider.quantise(f));
                     }
 
                     onPressed: mouse => apply(mouse)
