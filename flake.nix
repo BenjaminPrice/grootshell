@@ -57,6 +57,24 @@
               done
 
               python3 scripts/qml-audit.py .
+
+              # The Qt palette template must list exactly 21 roles per state,
+              # in QPalette's enum order.
+              #
+              # qt6ct falls back to its default palette SILENTLY when a list is
+              # the wrong length — no warning, no error, just an unthemed file
+              # dialog you notice a week later. This check used to be an
+              # assertion in the NixOS module that built the template; it moved
+              # here with the template itself.
+              for line in active inactive disabled; do
+                n=$(grep "^''${line}_colors=" templates/qt6ct-colors.conf.tpl \
+                      | tr ',' '\n' | wc -l)
+                if [ "$n" -ne 21 ]; then
+                  echo "qt6ct template: ''${line}_colors has $n roles, expected 21" >&2
+                  exit 1
+                fi
+              done
+
               touch $out
             '';
         }
