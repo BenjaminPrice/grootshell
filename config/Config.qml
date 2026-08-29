@@ -72,6 +72,15 @@ Singleton {
                 // mode switch exists to do deliberately.
                 property int workspaces: 5
                 property bool showTray: true
+
+                // The Wi-Fi indicator, and the panel behind it.
+                //
+                // Off by default because the machine this was built on is wired
+                // and has never been anything else — a permanently green icon
+                // reporting a fact that cannot change. Turn it on if you are on
+                // wifi, which is most people: the panel joins protected
+                // networks, disconnects, forgets and toggles the radio.
+                property bool showNetwork: false
                 // Tray icons are images, not glyphs, and IconImage pads a
                 // non-square source to fit — so they need to be a size up to
                 // look level with the Material Symbols icons next to them.

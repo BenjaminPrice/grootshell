@@ -129,6 +129,12 @@ Panel {
                     type: "bool"
                 },
                 {
+                    key: "bar.showNetwork",
+                    label: "Show Wi-Fi",
+                    detail: "The indicator and its panel — joining, forgetting, and the radio switch",
+                    type: "bool"
+                },
+                {
                     key: "bar.trayIconSize",
                     label: "Tray icon size",
                     type: "int",

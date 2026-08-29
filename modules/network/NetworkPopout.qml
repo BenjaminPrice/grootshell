@@ -4,20 +4,36 @@ import qs.config
 import qs.services
 import qs.components
 
-// The wifi popout, hanging off the network icon in the bar.
+// The wifi panel.
 //
-// groot is a wired host with a static address, so ethernet is shown first and
-// wifi is the exception rather than the headline. The scan only runs while this
-// is open — see services/Net.qml.
+// Everything a person does with wifi, without leaving the shell: join a
+// protected network, reconnect to a known one, disconnect, forget, and turn the
+// radio off. It used to be a viewer — you could see networks and click one
+// NetworkManager already knew — which is the half that does not help on the day
+// you are somewhere new.
+//
+// A network expands in place to ask for its passphrase rather than opening a
+// dialog. A dialog would be a second surface competing for the keyboard focus
+// this panel already holds, and the thing you are typing into belongs to the row
+// you clicked.
 
 Panel {
     id: root
 
     edge: "top"
     open: ShellState.network
-    implicitWidth: 340
-    implicitHeight: Math.min(420, body.implicitHeight + Appearance.padding.lg * 2)
+    implicitWidth: 360
+    implicitHeight: Math.min(520, body.implicitHeight + Appearance.padding.lg * 2)
     radius: Appearance.rounding.large
+
+    // Which row has its passphrase field open. One at a time: two open fields
+    // would be two things claiming to be what Enter submits.
+    property string asking: ""
+
+    onOpenChanged: {
+        root.asking = "";
+        Net.clearError();
+    }
 
     ColumnLayout {
         id: body
@@ -45,6 +61,7 @@ Panel {
                     text: Net.label()
                     color: Theme.text
                     font.pixelSize: Appearance.font.size.md
+                    elide: Text.ElideRight
                 }
 
                 StyledText {
@@ -53,6 +70,15 @@ Panel {
                     color: Theme.textMuted
                     font.pixelSize: Appearance.font.size.xs
                 }
+            }
+
+            // Only for wifi. Disconnecting ethernet from a panel you reached
+            // over the network is a way to lock yourself out of the machine.
+            Action {
+                visible: Net.wifi !== ""
+                glyph: "link_off"
+                tip: "Disconnect"
+                onActivated: Net.disconnect()
             }
         }
 
@@ -76,11 +102,20 @@ Panel {
                 Layout.fillWidth: true
             }
 
+            Action {
+                visible: Net.wifiEnabled
+                glyph: "refresh"
+                tip: "Scan again"
+                spinning: Net.scanning
+                onActivated: Net.scan()
+            }
+
             Rectangle {
                 implicitWidth: 40
                 implicitHeight: 22
                 radius: height / 2
                 color: Net.wifiEnabled ? Theme.accentContainer : Theme.surfaceContainerHighest
+                opacity: Net.busy ? 0.5 : 1
 
                 Behavior on color {
                     enabled: Appearance.anim.enabled
@@ -108,15 +143,56 @@ Panel {
 
                 MouseArea {
                     anchors.fill: parent
+                    enabled: !Net.busy
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Net.setWifiEnabled(!Net.wifiEnabled)
                 }
             }
         }
 
+        // --- What went wrong -------------------------------------------------
+        //
+        // nmcli's own words. "Secrets were required, but not provided" is what a
+        // wrong passphrase looks like, and rewording it would only lose detail
+        // that helps.
+        Rectangle {
+            Layout.fillWidth: true
+            visible: Net.error !== ""
+            implicitHeight: errorRow.implicitHeight + Appearance.padding.sm * 2
+            radius: Appearance.rounding.small
+            color: Theme.surfaceContainerHighest
+
+            RowLayout {
+                id: errorRow
+                anchors.fill: parent
+                anchors.margins: Appearance.padding.sm
+                spacing: Appearance.spacing.sm
+
+                Icon {
+                    text: "error"
+                    color: Theme.error
+                    size: Appearance.font.size.md
+                }
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: Net.error
+                    color: Theme.textSecondary
+                    font.pixelSize: Appearance.font.size.xs
+                    wrapMode: Text.WordWrap
+                }
+
+                Action {
+                    glyph: "close"
+                    tip: "Dismiss"
+                    onActivated: Net.clearError()
+                }
+            }
+        }
+
         StyledText {
             Layout.fillWidth: true
-            text: Net.scanning ? "Scanning…" : Net.networks.count === 0 ? "No networks found" : ""
+            text: !Net.wifiEnabled ? "Wi-Fi is off" : Net.busy ? "Working…" : Net.scanning ? "Scanning…" : Net.networks.count === 0 ? "No networks found" : ""
             color: Theme.textMuted
             font.pixelSize: Appearance.font.size.xs
             visible: text !== ""
@@ -126,7 +202,7 @@ Panel {
         ListView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.preferredHeight: Math.min(220, contentHeight)
+            Layout.preferredHeight: Math.min(280, contentHeight)
             visible: Net.wifiEnabled && Net.networks.count > 0
             clip: true
             spacing: 2
@@ -140,51 +216,236 @@ Panel {
                 required property bool secured
                 required property bool active
 
+                readonly property bool known: Net.isSaved(network.ssid)
+                readonly property bool asking: root.asking === network.ssid
+
                 width: ListView.view.width
-                implicitHeight: 40
+                implicitHeight: row.implicitHeight + (network.asking ? secret.implicitHeight + Appearance.spacing.sm : 0) + Appearance.padding.sm * 2
                 radius: Appearance.rounding.small
-                color: active ? Theme.accentContainer : netHover.containsMouse ? Theme.surfaceContainerHigh : "transparent"
+                color: network.active ? Theme.accentContainer : netHover.containsMouse || network.asking ? Theme.surfaceContainerHigh : "transparent"
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: Appearance.padding.sm
-                    anchors.rightMargin: Appearance.padding.sm
-                    spacing: Appearance.spacing.sm
-
-                    Icon {
-                        text: network.signal > 66 ? "wifi" : network.signal > 33 ? "wifi_2_bar" : "wifi_1_bar"
-                        color: network.active ? Theme.onAccentContainer : Theme.textSecondary
-                        size: Appearance.font.size.md
-                    }
-
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: network.ssid
-                        color: network.active ? Theme.onAccentContainer : Theme.text
-                        font.pixelSize: Appearance.font.size.sm
-                    }
-
-                    Icon {
-                        text: "lock"
-                        color: network.active ? Theme.onAccentContainerMuted : Theme.textMuted
-                        size: Appearance.font.size.xs
-                        visible: network.secured
+                Behavior on implicitHeight {
+                    enabled: Appearance.anim.enabled
+                    NumberAnimation {
+                        duration: Appearance.anim.fast
                     }
                 }
 
+                // Clicking the row: join it, or ask for the passphrase first.
+                //
+                // A saved network and an open one both join outright —
+                // NetworkManager holds the secret for the first and there is
+                // none for the second. Only a secured network nobody has joined
+                // before needs anything typed.
                 MouseArea {
                     id: netHover
                     anchors.fill: parent
                     hoverEnabled: true
+                    enabled: !Net.busy
                     cursorShape: Qt.PointingHandCursor
-                    // Only networks NetworkManager already has a profile for.
-                    // Prompting for a passphrase here would mean a password
-                    // field inside a layer surface on a host whose only input
-                    // arrives over a game stream; `nmcli` over SSH is the better
-                    // place to join a new network for the first time.
-                    onClicked: if (!network.active) Net.connect(network.ssid, "")
+                    onClicked: {
+                        if (network.active)
+                            return;
+                        Net.clearError();
+                        if (network.secured && !network.known)
+                            root.asking = network.asking ? "" : network.ssid;
+                        else
+                            Net.connect(network.ssid, "");
+                    }
+                }
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Appearance.padding.sm
+                    spacing: Appearance.spacing.sm
+
+                    RowLayout {
+                        id: row
+                        Layout.fillWidth: true
+                        spacing: Appearance.spacing.sm
+
+                        Icon {
+                            text: network.signal > 66 ? "wifi" : network.signal > 33 ? "wifi_2_bar" : "wifi_1_bar"
+                            color: network.active ? Theme.onAccentContainer : Theme.textSecondary
+                            size: Appearance.font.size.md
+                        }
+
+                        StyledText {
+                            Layout.fillWidth: true
+                            text: network.ssid
+                            color: network.active ? Theme.onAccentContainer : Theme.text
+                            font.pixelSize: Appearance.font.size.sm
+                            elide: Text.ElideRight
+                        }
+
+                        // Saved, but not connected. Says why this one joins on a
+                        // single click when the one below it asks for a password.
+                        StyledText {
+                            visible: network.known && !network.active
+                            text: "saved"
+                            color: Theme.textMuted
+                            font.pixelSize: Appearance.font.size.xs
+                        }
+
+                        Icon {
+                            text: "lock"
+                            color: network.active ? Theme.onAccentContainerMuted : Theme.textMuted
+                            size: Appearance.font.size.xs
+                            visible: network.secured
+                        }
+
+                        // Forgetting drops the stored passphrase, so it is only
+                        // offered where there is one to drop.
+                        Action {
+                            visible: network.known
+                            glyph: "delete"
+                            tip: "Forget this network"
+                            onActivated: {
+                                root.asking = "";
+                                Net.forget(network.ssid);
+                            }
+                        }
+                    }
+
+                    // --- Passphrase ---------------------------------------------
+                    RowLayout {
+                        id: secret
+                        Layout.fillWidth: true
+                        visible: network.asking
+                        spacing: Appearance.spacing.sm
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 28
+                            radius: Appearance.rounding.small
+                            color: Theme.surfaceContainerHighest
+                            border.width: pass.activeFocus ? 1 : 0
+                            border.color: Theme.accent
+
+                            TextInput {
+                                id: pass
+
+                                anchors.fill: parent
+                                anchors.leftMargin: Appearance.padding.sm
+                                anchors.rightMargin: Appearance.padding.sm
+                                verticalAlignment: TextInput.AlignVCenter
+                                font.family: Appearance.font.family.sans
+                                font.pixelSize: Appearance.font.size.xs
+                                color: Theme.text
+                                selectionColor: Theme.accentContainer
+                                selectedTextColor: Theme.onAccentContainer
+                                echoMode: reveal.showing ? TextInput.Normal : TextInput.Password
+                                clip: true
+
+                                // Focus follows the row opening, so the keyboard
+                                // is already where you are looking. Deferred
+                                // because the row is still growing on the frame
+                                // `asking` flips.
+                                onVisibleChanged: if (visible)
+                                    Qt.callLater(pass.forceActiveFocus)
+
+                                onAccepted: {
+                                    Net.connect(network.ssid, pass.text);
+                                    pass.text = "";
+                                    root.asking = "";
+                                }
+
+                                StyledText {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    visible: pass.text === "" && !pass.activeFocus
+                                    text: "Password"
+                                    color: Theme.textMuted
+                                    font.pixelSize: Appearance.font.size.xs
+                                }
+                            }
+                        }
+
+                        // Typing a passphrase you cannot see, on a keyboard you
+                        // may be holding at arm's length, is how people end up
+                        // blaming the network.
+                        Action {
+                            id: reveal
+                            property bool showing: false
+                            glyph: reveal.showing ? "visibility_off" : "visibility"
+                            tip: reveal.showing ? "Hide" : "Show"
+                            onActivated: reveal.showing = !reveal.showing
+                        }
+
+                        Action {
+                            glyph: "check"
+                            tip: "Join"
+                            onActivated: {
+                                Net.connect(network.ssid, pass.text);
+                                pass.text = "";
+                                root.asking = "";
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    // A small round icon button. Used for every verb in this panel so they read
+    // as the same kind of thing.
+    component Action: Rectangle {
+        id: control
+
+        property string glyph
+        property string tip
+        property bool spinning: false
+
+        signal activated
+
+        implicitWidth: 26
+        implicitHeight: 26
+        radius: width / 2
+        color: hover.containsMouse ? Theme.surfaceContainerHighest : "transparent"
+        opacity: Net.busy && !control.spinning ? 0.4 : 1
+
+        Icon {
+            id: mark
+            anchors.centerIn: parent
+            text: control.glyph
+            color: hover.containsMouse ? Theme.accent : Theme.textSecondary
+            size: Appearance.font.size.sm
+
+            RotationAnimator {
+                target: mark
+                running: control.spinning && Appearance.anim.enabled
+                from: 0
+                to: 360
+                duration: 900
+                loops: Animation.Infinite
+                onRunningChanged: if (!running)
+                    mark.rotation = 0
+            }
+        }
+
+        MouseArea {
+            id: hover
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: !Net.busy
+            cursorShape: Qt.PointingHandCursor
+            onClicked: control.activated()
+        }
+
+        StyledToolTipText {
+            text: control.tip
+            visible: hover.containsMouse
+        }
+    }
+
+    // The tip itself, as a separate component so the button above stays a
+    // button. Positioned below rather than above: these sit near the top of the
+    // panel, and a tip drawn upward would leave the surface entirely.
+    component StyledToolTipText: StyledText {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.bottom
+        anchors.topMargin: 2
+        color: Theme.textMuted
+        font.pixelSize: Appearance.font.size.xs
+        z: 10
     }
 }

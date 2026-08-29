@@ -208,13 +208,28 @@ Item {
                     size: Appearance.font.size.lg
                 }
 
-                // No network indicator. groot is wired and has never been
-                // anything else, so it was a permanently green icon reporting a
-                // fact that cannot change — and the one thing it did report,
-                // going down, is not something a status glyph is going to be
-                // the way you find out about. The popout still exists and its
-                // IPC handler still opens it, for the day this machine is
-                // somewhere with wifi.
+                // Off by default: the machine this was built on is wired, so
+                // it was a permanently green icon reporting a fact that cannot
+                // change. On any machine that uses wifi it is the opposite —
+                // see Config.bar.showNetwork.
+                Icon {
+                    visible: Config.bar.showNetwork
+                    text: Net.icon()
+                    color: Net.connected ? Theme.textSecondary : Theme.error
+                    size: Appearance.font.size.lg
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (!ShellState.network)
+                                Net.scan();
+                            ShellState.toggle("network");
+                        }
+                    }
+                }
+
 
                 Icon {
                     text: Volume.icon()
