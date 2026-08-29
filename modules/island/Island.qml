@@ -175,7 +175,12 @@ Item {
     // --- Surface -------------------------------------------------------------
     Rectangle {
         anchors.fill: parent
-        color: ShellState.island ? Theme.frame : clockHover.containsMouse ? Theme.surfaceContainerHigh : Theme.frame
+
+        // Bound straight to the role, with no Behavior of its own. The role
+        // already animates; a second animation chasing it stalls and then snaps,
+        // which is what made this drift behind the frame on a theme change and
+        // then catch up in one jump. See the note in components/Panel.qml.
+        color: Theme.frame
 
         // Fully round as a pill; square at the top and rounded at the bottom
         // once docked into the band.
@@ -189,10 +194,27 @@ Item {
         border.width: root.progress < 0.02 ? 1 : 0
         border.color: Theme.outlineVariant
 
-        Behavior on color {
-            enabled: Appearance.anim.enabled
-            ColorAnimation {
-                duration: Appearance.anim.fast
+        // The hover lift, as a layer that fades rather than as a second colour
+        // for the surface underneath. Same look, but it animates its own opacity
+        // instead of fighting the palette for the colour property — so hovering
+        // still eases and a theme change still tracks.
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: parent.border.width
+
+            color: Theme.surfaceContainerHigh
+            opacity: !ShellState.island && clockHover.containsMouse ? 1 : 0
+
+            topLeftRadius: parent.topLeftRadius
+            topRightRadius: parent.topRightRadius
+            bottomLeftRadius: parent.bottomLeftRadius
+            bottomRightRadius: parent.bottomRightRadius
+
+            Behavior on opacity {
+                enabled: Appearance.anim.enabled
+                NumberAnimation {
+                    duration: Appearance.anim.fast
+                }
             }
         }
     }

@@ -33,6 +33,20 @@ Singleton {
     // The image the in-flight run is for, promoted to lastGenerated on exit 0.
     property string pending: ""
 
+    // The image whose palette question has been ANSWERED, however it was
+    // answered: generated, failed, or never attempted because there is no
+    // generator to attempt it with. Distinct from lastGenerated, which only
+    // records success and so never settles on a machine without matugen.
+    //
+    // The wallpaper crossfade waits on this. Without it the image lands about a
+    // second before the colours do — measured at 1030ms on a 13MB PNG — and a
+    // wallpaper change reads as two unrelated events rather than one.
+    property string settled: ""
+
+    function markSettled(path: string): void {
+        root.settled = path;
+    }
+
     // Forced regeneration, ignoring the dedupe — for the IPC handler, and for
     // any case where the file on disk is wrong rather than merely stale.
     function regenerate(): void {
@@ -64,8 +78,15 @@ Singleton {
     readonly property string script: `${Quickshell.shellDir}/scripts/generate-theme.sh`
 
     function generate(path: string): void {
-        if (!path || path === root.lastGenerated || generator.running)
+        // Declined, so nothing is coming: settle now rather than leaving the
+        // wallpaper crossfade waiting on a run that will never start. The
+        // already-generated case is the common one — a wallpaper set back to
+        // one seen before still has its colours on disk.
+        if (!path || path === root.lastGenerated || generator.running) {
+            if (path)
+                root.markSettled(path);
             return;
+        }
         root.pending = path;
         // The generator picks light or dark from the image unless told; passing
         // the mode is what overrides that, so "auto" passes nothing at all.
@@ -139,6 +160,10 @@ Singleton {
                 // be retried rather than being deduped away forever.
                 console.warn("grootshell-theme exited", code, "for", root.pending);
             }
+            // Settled either way. A failed generation still answers the question
+            // the crossfade is waiting on — the answer is just "these are the
+            // colours you already had".
+            root.markSettled(root.pending);
             root.pending = "";
         }
     }

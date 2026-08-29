@@ -68,19 +68,22 @@ Item {
 
     onOpenChanged: if (!open && Appearance.anim.enabled) hideDelay.restart()
 
+    // No Behavior on the colour. Every Theme role already animates itself, and a
+    // second animation chasing an animating source does not smooth it — it
+    // stalls and then snaps. Measured during a wallpaper change: the frame's red
+    // channel walked 30→31→33→35→36 over 270ms while a panel driven through a
+    // 120ms Behavior sat at 29 for the whole ramp and then jumped 29→32→36 at
+    // the end. Each frame restarts the chase from wherever it got to, so it
+    // never covers the distance until the target finally holds still.
+    //
+    // Binding straight to the role tracks it exactly, which is what the frame
+    // was already doing and why the two used to drift apart.
     Rectangle {
         anchors.fill: parent
         radius: root.radius
         color: root.surface
         border.width: 1
         border.color: Theme.outlineVariant
-
-        Behavior on color {
-            enabled: Appearance.anim.enabled
-            ColorAnimation {
-                duration: Appearance.anim.fast
-            }
-        }
     }
 
     Item {
