@@ -1,0 +1,8 @@
+# Python bytecode from scripts/, which the Nix package copies wholesale into the
+# store — a stale .pyc in a shipped artefact is worse than useless.
+__pycache__/
+*.pyc
+
+# Nix build output.
+result
+result-*
