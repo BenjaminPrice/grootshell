@@ -40,6 +40,10 @@ Panel {
     // is set immediately before the panel opens and the order of the two is not
     // guaranteed — watching the group would miss a request that arrived first.
     onOpenChanged: {
+        // Whatever was open is pointing at a row that is about to be somewhere
+        // else, or gone.
+        root.closeSelect();
+
         if (!root.open || ShellState.settingsGroup === "")
             return;
         const wanted = root.groups.findIndex(g => g.title === ShellState.settingsGroup);
@@ -562,9 +566,10 @@ Panel {
         root.selectAnchor = null;
     }
 
-    // Nothing open survives the panel closing or the category changing, both of
-    // which leave the anchor somewhere the list is no longer pointing at.
-    onOpenChanged: if (!root.open) root.closeSelect()
+    // Nothing open survives a category change, which leaves the anchor somewhere
+    // the list is no longer pointing at. The panel opening and closing is handled
+    // in onOpenChanged above — QML allows exactly one handler per signal, and a
+    // second declaration is a load-time error, not an addition.
     onCategoryChanged: root.closeSelect()
 
     Item {
