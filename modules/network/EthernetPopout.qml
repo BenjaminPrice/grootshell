@@ -51,10 +51,19 @@ Panel {
 
                 StyledText {
                     Layout.fillWidth: true
-                    // The connection's name when NetworkManager owns it, the
-                    // interface when something else does — see Net.qml, which
-                    // falls back to the routing table for exactly this case.
-                    text: root.up ? Net.ethernet : "No cable"
+                    // The connection's NAME, when there is one worth showing.
+                    //
+                    // Net.ethernet falls back to the interface when
+                    // NetworkManager does not manage the link — which is the
+                    // case on this machine — and that would put "eno2" in the
+                    // title with "eno2 · 1 Gb/s" directly under it. When the
+                    // name is only the interface repeated, say "Wired" instead
+                    // and let the line below carry the detail.
+                    text: {
+                        if (!root.up)
+                            return "No cable";
+                        return Net.ethernet !== Net.wiredDevice ? Net.ethernet : "Wired";
+                    }
                     color: Theme.text
                     font.pixelSize: Appearance.font.size.md
                     elide: Text.ElideRight
