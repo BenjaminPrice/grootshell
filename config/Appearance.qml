@@ -66,6 +66,39 @@ Singleton {
             readonly property string icon: "Material Symbols Rounded"
         }
 
+        // Says so when a font is missing, rather than letting you work it out.
+        //
+        // The Nix package wraps these into a closed FONTCONFIG_FILE, so on that
+        // path this can never fire. Anywhere else they are the host's problem,
+        // and the failure is genuinely baffling: Qt silently substitutes, so a
+        // missing Material Symbols does not error — every icon in the shell just
+        // becomes a box, or worse, the LIGATURE NAME rendered as text, and
+        // "close" appears where a cross should be.
+        //
+        // Once, at startup, at warning level. A shell that renders wrongly and
+        // says nothing is the thing worth avoiding; a shell that nags is not.
+        Component.onCompleted: {
+            const available = Qt.fontFamilies();
+            const wanted = [
+                {
+                    name: root.font.family.icon,
+                    used: "every icon in the shell"
+                },
+                {
+                    name: root.font.family.sans,
+                    used: "all interface text"
+                },
+                {
+                    name: root.font.family.mono,
+                    used: "clocks, sizes and other figures"
+                }
+            ];
+            for (const f of wanted) {
+                if (!available.includes(f.name))
+                    console.warn(`grootshell: the font "${f.name}" is not installed — ${f.used} will fall back to something else`);
+            }
+        }
+
         readonly property QtObject size: QtObject {
             readonly property int xs: Math.round(13 * root.font.scale)
             readonly property int sm: Math.round(16 * root.font.scale)

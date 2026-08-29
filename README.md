@@ -78,7 +78,9 @@ streaming.
 Bundled into a closed fontconfig by the Nix package; install them yourself
 otherwise. Only the first is load-bearing.
 
-- **Material Symbols Rounded** — all iconography
+- **Material Symbols Rounded** — all iconography. Qt substitutes silently when a
+  font is missing, so its absence shows up as boxes rather than an error; the
+  shell logs a warning at startup naming any of these it cannot find.
 - **Rubik** — UI text
 - **CaskaydiaCove Nerd Font Mono** — monospace readouts
 - **Noto Sans CJK** — kanji numerals on empty workspaces (tofu without it)
@@ -217,22 +219,21 @@ Keep a few binds as **compositor dispatches rather than shell IPC** —
 `SUPER + W` to close a window, `SUPER + SHIFT + Tab` to cycle them, a fallback
 launcher — so they still work when the shell is down.
 
-Writing the same list to `/etc/grootshell/keybinds.json` as
-`[{ keys, description, category }]` is what populates the in-shell cheatsheet,
-so the documentation cannot drift from the bindings.
+Writing the same list as `[{ keys, description, category }]` is what populates
+the in-shell cheatsheet, so the documentation cannot drift from the bindings.
+The shell reads `/etc/grootshell/keybinds.json` first — the right home when
+something else owns the binds — and falls back to
+`~/.config/grootshell/keybinds.json`, which is where to put it if you configure
+Hyprland by hand.
 
-### 4. Match the compositor's geometry
+### 4. Geometry takes care of itself
 
-The shell draws a frame that tiled windows must clear. Two values have to agree
-with your Hyprland config:
+The shell draws a frame that tiled windows must clear, and it asks `hyprctl` for
+`general:gaps_out` and `general:border_size` rather than being told twice. Set
+your gaps to taste and the frame matches them.
 
-| Shell (`shell.json`) | Hyprland |
-| --- | --- |
-| `border.thickness` | `general:gaps_out` |
-| `bar.gap` | `general:gaps_out` + `general:border_size` |
-
-If they disagree the frame and the windows overlap, or leave a dead gap. *(This
-duplication is a known wart — the shell should ask the compositor instead.)*
+Set `border.thickness` to a positive number only if you want a frame
+deliberately thinner than the gap. Thicker will be drawn over by windows.
 
 ### 5. Colours and the calendar
 
@@ -259,11 +260,15 @@ live. See `config/Config.qml` for the full surface with defaults.
 {
   "appearance": { "fontScale": 1.0 },   // "sofa, not desk" — scales everything
   "bar":        { "workspaces": 5, "clockFormat": "ddd d MMM  HH:mm" },
-  "border":     { "thickness": 10, "rounding": 25 },
+  "border":     { "thickness": 0, "rounding": 25 },  // 0 = follow the compositor
   "wallpaper":  { "directory": "~/Pictures/Wallpapers" },
   "weather":    { "location": "Osaka", "units": "metric", "days": 10 }
 }
 ```
+
+Keys you have not set stay **absent**, and absent means "follow the shipped
+default" — so a default that improves upstream reaches you. Nothing writes this
+file wholesale for that reason; see `services/Settings.qml`.
 
 Runtime state — the current wallpaper, the light/dark override — lives separately
 in `$XDG_STATE_HOME/quickshell/by-shell/grootshell/state.json`, deliberately: the
