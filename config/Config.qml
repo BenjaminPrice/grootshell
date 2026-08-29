@@ -132,6 +132,20 @@ Singleton {
                 // thinner than the gap. Thicker will be drawn over by windows.
                 property int thickness: 0
                 property int rounding: 25
+
+                // How far tiled windows are held off the frame, on the sides and
+                // the bottom. -1 means "the compositor's gaps_in", which is what
+                // makes the frame behave like just another neighbouring window:
+                // two tiled windows sit 2 x gaps_in apart, so each keeps gaps_in
+                // to the line between them, and this keeps the same to the frame.
+                //
+                // Without it a window sits flush against the frame — gaps_out IS
+                // the frame's thickness, so the two meet exactly — and the
+                // frame's rounded inner corners cut across the window's own.
+                //
+                // 0 is a real value meaning no padding, which is why "follow the
+                // compositor" has to be -1 here rather than 0 as it is above.
+                property int padding: -1
             }
 
             component Island: JsonObject {

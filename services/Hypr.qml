@@ -55,11 +55,13 @@ Singleton {
     // cannot be asked.
     property int gapTop: 0
     property int gapMin: 0
+    property int gapIn: 0
     property int borderSize: 0
     property bool known: false
 
     readonly property int fallbackThickness: 10
     readonly property int fallbackInset: 14
+    readonly property int fallbackPadding: 5
 
     // The frame band, on every side.
     //
@@ -78,6 +80,25 @@ Singleton {
     // beyond that, and the pills float in the difference.
     readonly property int windowInset: root.known ? root.gapTop + root.borderSize : root.fallbackInset
 
+    // How far a tiled window is held OFF the frame, reserved on top of the gap
+    // the compositor already leaves.
+    //
+    // Without it a window sits flush against the frame's inner edge — gaps_out
+    // is the frame's thickness, so the two meet exactly — and the frame's
+    // rounded inner corners then cut across the window's own rounded corners.
+    // It reads as the shell clipping the windows, which it is.
+    //
+    // gaps_in is the default because it is the answer the layout already gives
+    // to the same question. Two tiled windows sit 2 × gaps_in apart, so each
+    // keeps gaps_in to the line between them; keeping gaps_in to the frame as
+    // well makes the frame just another neighbour, and the spacing around a
+    // window is uniform wherever you look.
+    readonly property int windowPadding: {
+        if (Config.border.padding >= 0)
+            return Config.border.padding;
+        return root.known ? root.gapIn : root.fallbackPadding;
+    }
+
     // Queried once at startup, and again whenever game mode flips — which is the
     // one thing on this host that changes them, since the game look sets
     // gaps_out and border_size to 0 (see groot-mode in the nixos repo).
@@ -87,15 +108,17 @@ Singleton {
         running: true
         command: ["sh", "-c", `
             gaps=$(hyprctl -j getoption general:gaps_out 2>/dev/null | sed -n 's/.*"css": "\\([^"]*\\)".*/\\1/p')
+            inner=$(hyprctl -j getoption general:gaps_in 2>/dev/null | sed -n 's/.*"css": "\\([^"]*\\)".*/\\1/p')
             border=$(hyprctl -j getoption general:border_size 2>/dev/null | sed -n 's/.*"int": \\([0-9-]*\\).*/\\1/p')
-            printf '%s|%s\\n' "$gaps" "\${border:-}"
+            printf '%s|%s|%s\\n' "$gaps" "\${inner:-}" "\${border:-}"
         `]
 
         stdout: StdioCollector {
             onStreamFinished: {
                 const parts = text.trim().split("|");
                 const rawGaps = (parts[0] ?? "").trim();
-                const rawBorder = (parts[1] ?? "").trim();
+                const rawInner = (parts[1] ?? "").trim();
+                const rawBorder = (parts[2] ?? "").trim();
 
                 // Emptiness is checked BEFORE converting, and that is the whole
                 // guard. Number("") is 0 in JavaScript, not NaN — so with no
@@ -103,7 +126,7 @@ Singleton {
                 // declared the geometry known, and set the frame to nothing at
                 // all. A shell with no frame, on exactly the machines that
                 // cannot ask.
-                if (rawGaps === "" || rawBorder === "") {
+                if (rawGaps === "" || rawInner === "" || rawBorder === "") {
                     console.log("grootshell: no answer from the compositor; using built-in frame geometry");
                     return;
                 }
@@ -111,9 +134,10 @@ Singleton {
                 // gaps_out is CSS shorthand — "12 12 12 12", top right bottom
                 // left — so it is four numbers even when they are all the same.
                 const gaps = rawGaps.split(/\s+/).map(Number);
+                const inner = rawInner.split(/\s+/).map(Number);
                 const border = Number(rawBorder);
 
-                if (gaps.length === 0 || gaps.some(isNaN) || isNaN(border)) {
+                if (gaps.length === 0 || gaps.some(isNaN) || inner.length === 0 || inner.some(isNaN) || isNaN(border)) {
                     console.log("grootshell: could not parse the compositor's geometry:", text.trim());
                     return;
                 }
@@ -123,6 +147,7 @@ Singleton {
                 // rather than treated as absurd.
                 root.gapTop = gaps[0];
                 root.gapMin = Math.min(...gaps);
+                root.gapIn = Math.min(...inner);
                 root.borderSize = border;
                 root.known = true;
             }

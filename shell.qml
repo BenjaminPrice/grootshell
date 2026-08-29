@@ -163,6 +163,43 @@ ShellRoot {
             // the screen, and a zone is a full-edge strip — reserving for it
             // would push every window down to clear something that only covers
             // the middle third.
+            // Breathing room between the frame and the windows inside it.
+            //
+            // The compositor leaves gaps_out around a tiled window and the frame
+            // is exactly gaps_out thick, so the two meet flush and the frame's
+            // rounded inner corners clip the window's corners. These reserve a
+            // little more, on the three edges that have no bar to do it for them,
+            // and Hyprland lays the windows out that much further in.
+            //
+            // Reserved rather than drawn: the frame stays the same size and in
+            // the same place, and it is the WINDOWS that move. Making the frame
+            // thicker instead would eat the same space from the other side and
+            // leave them just as flush.
+            // Written out three times rather than looped: a Repeater needs Item
+            // delegates and these are windows, so it silently creates nothing.
+            EdgeReservation {
+                reservationScreen: scope.modelData
+                edge: "left"
+                depth: Hypr.windowPadding
+                // Game mode collapses the frame, so there is nothing left to
+                // hold the windows away from.
+                reserve: !GameMode.enabled && Hypr.windowPadding > 0
+            }
+
+            EdgeReservation {
+                reservationScreen: scope.modelData
+                edge: "right"
+                depth: Hypr.windowPadding
+                reserve: !GameMode.enabled && Hypr.windowPadding > 0
+            }
+
+            EdgeReservation {
+                reservationScreen: scope.modelData
+                edge: "bottom"
+                depth: Hypr.windowPadding
+                reserve: !GameMode.enabled && Hypr.windowPadding > 0
+            }
+
             EdgeReservation {
                 reservationScreen: scope.modelData
                 edge: "right"
