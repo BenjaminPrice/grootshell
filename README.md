@@ -113,38 +113,73 @@ neither feature needs Nix; they need the tools in the table above.
 
 ---
 
-## Running it
+## Installing it
 
-### With Nix
+### With Nix (NixOS)
 
-```bash
-nix run github:BenjaminPrice/quickshell-dots
-```
-
-Or as a flake input:
+The flake ships a NixOS module, so this is the whole of it:
 
 ```nix
 {
   inputs.grootshell.url = "github:BenjaminPrice/quickshell-dots";
+
+  # in your configuration.nix / a module
+  imports = [ inputs.grootshell.nixosModules.default ];
+
+  programs.grootshell = {
+    enable = true;
+    user = "you";
+  };
 }
 ```
 
-The package exposes two binaries:
+That gives you the shell as a user service with the right `PATH`, the fonts and
+icon themes it draws with, the tools it shells out to, and the environment a
+keybind needs to find a running instance.
 
-- `grootshell` — the shell itself
-- `grootshell-ipc` — talks to a running instance, e.g.
-  `grootshell-ipc call launcher toggle`
+Then bind some keys in your own Hyprland config — every shell action is
+`grootshell-ipc call <target> <function>`:
+
+```
+bind = SUPER, space, exec, grootshell-ipc call launcher toggle
+bind = SUPER, S,     exec, grootshell-ipc call island toggle
+bind = SUPER, comma, exec, grootshell-ipc call settings toggle
+```
+
+Pass the same list to `programs.grootshell.keybinds` as
+`[{ keys, description, category }]` and the in-shell cheatsheet on `SUPER+/`
+documents exactly what you bound. Extra fields are ignored, so one list can carry
+your dispatchers too.
+
+Useful options:
+
+| Option | What it does |
+| --- | --- |
+| `devPath` | Run the QML from a writable checkout. Quickshell hot-reloads on save, so editing the shell stops needing a rebuild per change. |
+| `target` | The systemd user target to bind to. Use a compositor-specific one if you have it, so the shell cannot outlive the compositor. |
+| `calendarUrlFile` | Where the agenda's feed list lives, when it is a secret rather than a file in your config directory. |
+| `theming` | Install matugen and adw-gtk3. On by default; turn it off to keep your own colours. |
+| `fonts`, `clipboardHistory` | Both on by default. |
+
+**What the module deliberately does not do:** it does not touch your cursor
+theme, GTK or Qt settings files, or dconf keys, and it does not generate
+compositor keybinds. Those are opinions about a whole desktop rather than about
+this shell.
 
 ### Without Nix
 
-Point Quickshell at a checkout:
+Nix is a convenience here, not a requirement. Point Quickshell at a checkout:
 
 ```bash
-qs -p /path/to/quickshell-dots
+git clone https://github.com/BenjaminPrice/quickshell-dots
+qs -p quickshell-dots
 ```
 
-You are responsible for the fonts and the tools above being on `PATH`. The
-helpers in `scripts/` are found relative to `shell.qml`, so nothing needs
+You are responsible for the fonts and the tools in the table above being on
+`PATH`; the shell names any font it cannot find, at startup, and every optional
+tool degrades quietly.
+
+The helpers in `scripts/` are found relative to `shell.qml`, so nothing needs
 installing:
 
 ```bash
@@ -152,104 +187,17 @@ scripts/generate-theme.sh ~/Pictures/Wallpapers/some.png   # colours, by hand
 scripts/grootshell-ipc call launcher toggle                # for keybinds
 ```
 
-For the agenda, put one `name|url` per line in
-`~/.config/grootshell/calendars` — each URL being a calendar's "secret address
-in iCal format".
+Two files to know about:
 
----
+- `~/.config/grootshell/keybinds.json` — the cheatsheet, if you are not using
+  the NixOS module to generate it.
+- `~/.config/grootshell/calendars` — one `name|url` per line, each being a
+  calendar's "secret address in iCal format".
 
-## Setting it up the way groot does
-
-The shell is only half of it — the other half is a NixOS module that runs it as a
-user service, gives it a `PATH`, binds keys to its IPC surface, and generates the
-colour scheme. This repo does not yet ship that module; here is what it has to
-do, so you can replicate it.
-
-### 1. Run it as a user service
-
-```nix
-systemd.user.services.grootshell = {
-  wantedBy = [ "graphical-session.target" ];
-  after = [ "graphical-session.target" ];
-  serviceConfig.ExecStart = "${grootshell}/bin/grootshell";
-
-  # The shell LAUNCHES things, and a systemd service gets the closed PATH NixOS
-  # builds. Without both profiles here, anything with a bare name in its
-  # .desktop Exec silently fails to start.
-  path = [
-    "/run/current-system/sw"
-    "/etc/profiles/per-user/YOUR_USERNAME"
-  ];
-};
-```
-
-### 2. Point it at a checkout while developing
-
-Quickshell hot-reloads QML on save. The wrapper resolves its QML directory from
-`GROOTSHELL_CONFIG_PATH` at runtime, so pointing it at a writable checkout means
-edits apply live instead of needing a rebuild:
-
-```nix
-systemd.user.services.grootshell.environment.GROOTSHELL_CONFIG_PATH =
-  "/home/you/dev/quickshell-dots";
-```
-
-Unset it and the shell runs its own store copy.
-
-### 3. Bind keys to the IPC surface
-
-Every shell bind is `grootshell-ipc call <target> <function>`. Defaults on
-groot — see `services/Keybinds.qml` for the panel-local keys the compositor
-never sees.
-
-| Key | Action |
-| --- | --- |
-| `SUPER + space` / `SUPER + D` | Application launcher |
-| `SUPER + S` | Island — dashboard, media, performance, wallpaper, weather |
-| `SUPER + Tab` | Desktop switcher, with previews |
-| `SUPER + P` | Wallpaper picker |
-| `SUPER + N` | Notification centre |
-| `SUPER + SHIFT + V` | Clipboard history |
-| `SUPER + T` | Translate |
-| `SUPER + /` | Keybind cheatsheet |
-| `SUPER + G` | Game mode |
-| `Print` / `SUPER + Print` | Screenshot region / screen |
-
-Keep a few binds as **compositor dispatches rather than shell IPC** —
-`SUPER + W` to close a window, `SUPER + SHIFT + Tab` to cycle them, a fallback
-launcher — so they still work when the shell is down.
-
-Writing the same list as `[{ keys, description, category }]` is what populates
-the in-shell cheatsheet, so the documentation cannot drift from the bindings.
-The shell reads `/etc/grootshell/keybinds.json` first — the right home when
-something else owns the binds — and falls back to
-`~/.config/grootshell/keybinds.json`, which is where to put it if you configure
-Hyprland by hand.
-
-### 4. Geometry takes care of itself
-
-The shell draws a frame that tiled windows must clear, and it asks `hyprctl` for
-`general:gaps_out` and `general:border_size` rather than being told twice. Set
-your gaps to taste and the frame matches them.
-
-Set `border.thickness` to a positive number only if you want a frame
-deliberately thinner than the gap. Thicker will be drawn over by windows.
-
-### 5. Colours and the calendar
-
-Both helpers come from the shell's own package — `grootshell-theme` and
-`grootshell-calendar` are in its `bin/` — so there is nothing to write. Put the
-package on the service's `path` and the shell will find them.
-
-The theme generator wants `matugen`, ImageMagick and `dconf`; the calendar
-fetcher wants a Python with `icalendar` and `recurring-ical-events`. The Nix
-wrappers supply both sets, which is the whole reason to prefer them.
-
-Point the fetcher at your feed list with
-`GROOTSHELL_CALENDAR_URL_FILE` on the service — useful when the list is a secret
-at a path under `/run` rather than a file in the config directory.
-
----
+To run it as a user service, the module's unit is a reasonable template: bind it
+to `graphical-session.target`, put your profile on its `PATH` so launched
+applications resolve, and set `KillMode=process` so a restart does not take the
+applications with it.
 
 ## Configuration
 
@@ -297,7 +245,7 @@ modules/
   switcher/          window and desktop switchers
   translate/         translation panel
   keybinds/          the cheatsheet
-nix/                 package definition
+nix/                 package definition and the NixOS module
 templates/           matugen templates: the shell, GTK, Qt, WezTerm
 scripts/             theme generator, calendar fetcher, ipc wrapper, qml-audit
 ```
