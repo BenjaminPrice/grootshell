@@ -46,7 +46,7 @@ Singleton {
             label: "YouTube Music",
             kind: "music",
             icon: "music_note",
-            names: ["pear-desktop", "YouTube Music", "com.github.th_ch.youtube_music"],
+            names: ["pear-desktop", "YouTube Music", "com.github.th-ch.youtube-music", "com.github.th_ch.youtube_music"],
             command: ["pear-desktop"]
         },
         {
@@ -217,6 +217,18 @@ Singleton {
     }
 
     function installedMediaApps(): var {
+        // Reading the model's length anchors this to it.
+        //
+        // heuristicLookup is a function CALL, not a property read, so a binding
+        // on installedMediaApps() registers no dependency on the desktop
+        // database and never re-evaluates. DesktopEntries populates
+        // asynchronously — measured at zero entries 0.8s after launch and 46 at
+        // 1.6s — so opening the settings panel promptly showed "no media players
+        // found" and kept saying it forever. Touching the model makes the list
+        // recompute when it arrives.
+        const populated = DesktopEntries.applications.values.length;
+        void populated;
+
         const out = [];
         for (const app of root.mediaCatalogue) {
             if (root.installed(app))
