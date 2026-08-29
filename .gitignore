@@ -6,3 +6,8 @@ __pycache__/
 # Nix build output.
 result
 result-*
+
+# macOS writes one of these into every directory it has opened in Finder. Not
+# ours, not the project's, and it will keep coming back — so it is ignored
+# rather than deleted each time.
+.DS_Store
