@@ -103,11 +103,11 @@ erroring if it is missing.
 No API keys anywhere. The weather comes from
 [Open-Meteo](https://open-meteo.com/), which needs none.
 
-> **Note on non-Nix use.** Two features currently shell out to helpers built by
-> the companion NixOS configuration — `grootshell-theme` (wallpaper theming) and
-> `grootshell-calendar` (the agenda). Everything else runs anywhere. Moving those
-> scripts into this repo so they work without Nix is planned; until then the
-> shell falls back to a built-in palette and an empty agenda.
+The two helpers the shell shells out to — the theme generator and the calendar
+fetcher — live in `scripts/` here. The shell prefers a packaged `grootshell-theme`
+or `grootshell-calendar` on `PATH` when there is one, because the Nix wrappers
+bring their own dependencies, and otherwise runs the bundled script directly. So
+neither feature needs Nix; they need the tools in the table above.
 
 ---
 
@@ -141,7 +141,18 @@ Point Quickshell at a checkout:
 qs -p /path/to/quickshell-dots
 ```
 
-You are responsible for the fonts and the tools above being on `PATH`.
+You are responsible for the fonts and the tools above being on `PATH`. The
+helpers in `scripts/` are found relative to `shell.qml`, so nothing needs
+installing:
+
+```bash
+scripts/generate-theme.sh ~/Pictures/Wallpapers/some.png   # colours, by hand
+scripts/grootshell-ipc call launcher toggle                # for keybinds
+```
+
+For the agenda, put one `name|url` per line in
+`~/.config/grootshell/calendars` — each URL being a calendar's "secret address
+in iCal format".
 
 ---
 
@@ -223,14 +234,19 @@ with your Hyprland config:
 If they disagree the frame and the windows overlap, or leave a dead gap. *(This
 duplication is a known wart — the shell should ask the compositor instead.)*
 
-### 5. Generate the colour scheme
+### 5. Colours and the calendar
 
-The shell runs `grootshell-theme <image> [light|dark]` whenever the wallpaper
-changes and expects it to write `~/.config/grootshell/theme.json`. Give it a
-script that runs matugen and writes that file; optionally have it also emit GTK,
-qt6ct and terminal palettes so applications follow along.
+Both helpers come from the shell's own package — `grootshell-theme` and
+`grootshell-calendar` are in its `bin/` — so there is nothing to write. Put the
+package on the service's `path` and the shell will find them.
 
-Without it, the shell uses its compiled-in palette and everything still works.
+The theme generator wants `matugen`, ImageMagick and `dconf`; the calendar
+fetcher wants a Python with `icalendar` and `recurring-ical-events`. The Nix
+wrappers supply both sets, which is the whole reason to prefer them.
+
+Point the fetcher at your feed list with
+`GROOTSHELL_CALENDAR_URL_FILE` on the service — useful when the list is a secret
+at a path under `/run` rather than a file in the config directory.
 
 ---
 
@@ -277,7 +293,8 @@ modules/
   translate/         translation panel
   keybinds/          the cheatsheet
 nix/                 package definition
-scripts/             qml-audit.py
+templates/           matugen templates: the shell, GTK, Qt, WezTerm
+scripts/             theme generator, calendar fetcher, ipc wrapper, qml-audit
 ```
 
 ## Developing
