@@ -33,6 +33,15 @@
       # that parse cleanly and fail at load. Quickshell exits when its config
       # fails to load, so each of those is a black screen on a host with no
       # local console; they are worth catching before a push, not after.
+      # A NixOS module, so running this is `enable = true` rather than
+      # reverse-engineering a systemd unit out of someone else's dotfiles.
+      #
+      # It is convenience, not a requirement: the shell resolves its own helper
+      # scripts relative to shell.qml, so `qs -p /path/to/checkout` works with no
+      # Nix at all. See the README.
+      nixosModules.grootshell = import ./nix/module.nix self;
+      nixosModules.default = self.nixosModules.grootshell;
+
       checks = forAll (
         system:
         let
