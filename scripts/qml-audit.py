@@ -39,7 +39,10 @@ Each rule here exists because it shipped:
                         fails at load with "X is not a type" — which restart-
                         loops the shell. Shipped once, as EdgeReservation in
                         shell.qml, which imported every qs.modules.* and not
-                        qs.components.
+                        qs.components. Also covers SINGLETONS, which are used by
+                        name rather than instantiated: those do not even fail
+                        loudly — the expression throws, the binding produces
+                        nothing, and the feature is quietly empty.
 
   duplicate-id          The same id twice in one file. QML ids are unique per
                         component; qmlformat accepts it and the engine rejects
@@ -148,6 +151,7 @@ BEHAVIOR = re.compile(r"Behavior\s+on\s+([\w.]+)")
 DEEP_ALIAS = re.compile(r"property\s+alias\s+\w+\s*:\s*(\w+\.\w+\.\w+)")
 COMPONENT = re.compile(rf"component\s+\w+\s*:\s*{ITEM_DERIVED}\s*\{{")
 PROPERTY = re.compile(r"property\s+\w+\s+(\w+)")
+PRAGMA_SINGLETON = re.compile(r"^\s*pragma\s+Singleton", re.M)
 
 
 COMMENT_LINE = re.compile(r"^[ \t]*//.*$", re.M)
@@ -335,8 +339,14 @@ def check_imports(files: list[Path], root: Path) -> list[tuple[Path, int, str, s
     Quickshell is someone else's problem and resolves through its own import.
     """
     defined: dict[str, str] = {}
+    # Singletons are referenced by NAME rather than instantiated, so they never
+    # appear as an object declaration and the loop below cannot see them. They
+    # are also most of what this tree defines.
+    singletons: dict[str, str] = {}
     for f in files:
         defined[f.stem] = module_of(f, root)
+        if PRAGMA_SINGLETON.search(f.read_text(encoding="utf-8")):
+            singletons[f.stem] = module_of(f, root)
 
     findings: list[tuple[Path, int, str, str]] = []
 
@@ -362,6 +372,31 @@ def check_imports(files: list[Path], root: Path) -> list[tuple[Path, int, str, s
                     line_of(text, match.start()),
                     "missing-import",
                     f"'{name}' is defined in {source}, which this file does not import",
+                )
+            )
+
+        # The same check for singletons, which are USED rather than declared.
+        #
+        # `Config.configDir` in a file that does not import qs.config does not
+        # fail to parse and does not fail to load — the expression simply throws
+        # at evaluation, the binding that contained it silently produces nothing,
+        # and whatever depended on it is empty. That is far harder to spot than
+        # the "is not a type" a missing object import gives you: it shipped as a
+        # keybind cheatsheet that read no file at all.
+        stripped = strip_comments(text)
+        for name, source in singletons.items():
+            if name in seen or name == f.stem or source == own or source in imported:
+                continue
+            use = re.search(rf"(?<![\w.]){re.escape(name)}\s*\.", stripped)
+            if not use:
+                continue
+            seen.add(name)
+            findings.append(
+                (
+                    f,
+                    line_of(text, use.start()),
+                    "missing-import",
+                    f"singleton '{name}' is defined in {source}, which this file does not import",
                 )
             )
 

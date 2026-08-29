@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.config
 
 // The keybind list, for the help modal.
 //
@@ -12,9 +13,10 @@ import Quickshell.Io
 // week, and this one is read from across a room precisely when you have
 // forgotten everything.
 //
-// Read from /etc rather than the config dir because it describes the compositor,
-// not the shell — it is true for whoever is logged in, and it is not something a
-// user edits.
+// Read from /etc first because there it describes the compositor, not the shell
+// — it is true for whoever is logged in, and is not something a user edits. The
+// config directory is the fallback, for anyone who configures Hyprland
+// themselves and has nowhere else to tell the shell what they chose.
 //
 // Panel keys are the exception and are declared below. They are handled inside
 // QML, by whichever panel has focus, so Nix never sees them and they cannot come
@@ -25,7 +27,22 @@ import Quickshell.Io
 Singleton {
     id: root
 
-    readonly property string path: "/etc/grootshell/keybinds.json"
+    // Two places, tried in order.
+    //
+    // /etc is where the NixOS module writes it, because there the list describes
+    // the COMPOSITOR — it is true for whoever logs in, and is not something a
+    // user edits. That is the right home when something else owns the binds.
+    //
+    // The config directory is for everyone else. Without it the cheatsheet is a
+    // feature only this machine has: anyone else configures Hyprland themselves
+    // and has nowhere to tell the shell what they chose.
+    readonly property var sources: [
+        "/etc/grootshell/keybinds.json",
+        `${Config.configDir}/keybinds.json`
+    ]
+
+    property int source: 0
+    readonly property string path: root.sources[root.source] ?? ""
 
     property var binds: []
     readonly property bool available: binds.length > 0
@@ -164,7 +181,25 @@ Singleton {
                 }));
     }
 
+    // Advancing to the next source, deferred.
+    //
+    // Reassigning `path` from inside the FileView's own onLoadFailed does not
+    // start a new load — the view is mid-failure and the change is swallowed, so
+    // the path updates and nothing is ever read from it. Doing it on the next
+    // turn of the event loop, and asking for the reload explicitly, is what
+    // makes the fallback actually fall back.
+    function advance(): void {
+        if (root.source + 1 >= root.sources.length) {
+            console.log("grootshell: no keybind list found; tried", root.sources.join(", "));
+            return;
+        }
+        root.source++;
+        file.reload();
+    }
+
     FileView {
+        id: file
+
         path: root.path
         watchChanges: true
         blockLoading: false
@@ -179,11 +214,14 @@ Singleton {
             }
         }
 
-        // Absent is the normal case for a bare dev checkout with no NixOS
-        // module behind it, so this is a note rather than a warning.
+        // Absent is the normal case — /etc holds one only where the NixOS
+        // module wrote it — so this falls through to the next source rather
+        // than treating it as an error. Running out of sources is still not a
+        // warning: a shell with no cheatsheet works fine, it just cannot tell
+        // you what the compositor's keys do.
         onLoadFailed: {
-            console.log("grootshell: no keybind list at", root.path);
             root.binds = [];
+            Qt.callLater(root.advance);
         }
     }
 
