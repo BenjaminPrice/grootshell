@@ -68,7 +68,7 @@ of the table below.
 
 ## Every IPC call
 
-Fifteen targets. Anything a panel does can be done from a script, which is the
+Sixteen targets. Anything a panel does can be done from a script, which is the
 point — the binds are just the most common caller.
 
 ### Panels
@@ -86,6 +86,7 @@ want on a key: one bind, no state to track.
 | `clipboard toggle` | Clipboard history (needs `cliphist`) |
 | `wifi toggle` | Wi-Fi — join, forget, radio on/off, addresses |
 | `ethernet toggle` | Wired — interface, link speed, addresses. Nothing to click |
+| `scaling toggle` | Display scaling — how big the desktop is on the screen looking at it |
 | `keybinds toggle` | The cheatsheet |
 | `settings toggle` | Settings |
 | `settings open <group>` | Straight to a group: `Scale`, `Bar`, `Frame`, `Panels`, `Theme`, `Media`, `Weather`, `Wallpaper and system` |
@@ -109,6 +110,38 @@ worth knowing if you build on this: Hyprland dispatches its own binds *before*
 forwarding keys to clients. SUPER+Tab fires even while the panel holds exclusive
 keyboard focus, so a Tab handler in the panel would move the selection twice per
 press.
+
+### Display scaling
+
+| Call | Does |
+| --- | --- |
+| `scaling toggle` | The panel |
+| `scaling up` / `scaling down` | One step along the scales this resolution allows |
+| `scaling set <scale>` | A particular scale, snapped to the nearest the mode can express |
+| `scaling status` | `2560x1440 @ 1.25x (remembered: 1.25x)` |
+
+This changes what the compositor considers a pixel, so it resizes every window
+along with the shell — unlike the four `Scale` settings, which size only the
+shell's own type and spacing. The two multiply.
+
+The scale is remembered against the **resolution**, not globally, because on a
+streamed host the resolution is whatever the client asked for rather than
+anything you chose. Connect at 4K and you get the scale you last picked at 4K;
+connect at 1440p and you get that one. New resolutions start at 1x.
+
+`up` and `down` exist because a desktop at the wrong size is the one case where
+the shell's own UI is the awkward thing to use. Worth binding on a headless host,
+where there is no local console to fall back on:
+
+```bash
+bind = SUPER, slash,       exec, grootshell-ipc call scaling up
+bind = SUPER SHIFT, slash, exec, grootshell-ipc call scaling down
+```
+
+Not every number is a legal scale. Hyprland only accepts one that divides the
+mode into whole logical pixels in 1/120ths, so the offered scales are computed
+against the current resolution — 1.5 is exact at 3840x2160 and becomes 1.6 at
+2560x1440, which is why the list changes when the client does.
 
 ### Notifications
 
