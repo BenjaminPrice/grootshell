@@ -54,8 +54,54 @@ PanelWindow {
     readonly property Image visibleLayer: root.showFirst ? first : second
     readonly property Image stagingLayer: root.showFirst ? second : first
 
+    // The screen's LOGICAL size, which is what the wallpaper is decoded at.
+    //
+    // Mirrored into properties of our own rather than read straight off the
+    // screen at the point of use, because a change to it has to be handled
+    // rather than merely propagated. See onScreenWidthChanged below.
+    readonly property int screenWidth: root.screen.width
+    readonly property int screenHeight: root.screen.height
+
+    // Both halves of a load, together: the file and the size to decode it at.
+    //
+    // sourceSize is set HERE rather than bound on the Image. Bound to the
+    // screen — as it was, on both images at once — a resize re-decodes from
+    // scratch, and with cache: false that is a fresh read off disk. Assigned to
+    // the staging layer only, it becomes just another thing that differs between
+    // the outgoing image and the incoming one, no different from the file
+    // itself changing, so a resize takes the same crossfade as a new wallpaper.
+    //
+    // That alone does NOT keep the wallpaper on screen, which is worth being
+    // clear about because it looks as though it should. The surface resize costs
+    // BOTH images their texture before any of this runs — measured: the flash
+    // starts ~24ms after the mode change, long before this fires — so there is
+    // no old image left to hold on to. What fills the gap is the thumbnail
+    // below; this is what makes the return to full resolution a fade rather than
+    // a jump.
     function load(): void {
+        paletteTimeout.restart();
+        root.stagingLayer.sourceSize = Qt.size(root.screenWidth, root.screenHeight);
         root.stagingLayer.source = Wallpapers.current ? `file://${Wallpapers.current}` : "";
+    }
+
+    // A resolution change is a wallpaper change that happens to keep the same
+    // file. Sunshine retargets the output on connect and the scaling widget
+    // changes the logical size, so this fires in ordinary use rather than only
+    // when hardware is plugged in.
+    //
+    // Debounced only because width and height arrive as two signals for one
+    // change, and decoding twice would be wasteful.
+    onScreenWidthChanged: resize.restart()
+    onScreenHeightChanged: resize.restart()
+
+    Timer {
+        id: resize
+        // Only long enough to coalesce width and height, which arrive as two
+        // signals for one change. NOT a settling delay: the texture is already
+        // gone by the time this starts (see the thumbnail below), so every
+        // millisecond waited here is a millisecond of not-the-wallpaper.
+        interval: 50
+        onTriggered: root.load()
     }
 
     // Start the crossfade once BOTH halves are ready: the image decoded, and the
@@ -84,7 +130,6 @@ PanelWindow {
     Connections {
         target: Wallpapers
         function onCurrentChanged(): void {
-            paletteTimeout.restart();
             root.load();
         }
     }
@@ -117,6 +162,48 @@ PanelWindow {
     Item {
         anchors.fill: parent
 
+        // A small copy of the same wallpaper, underneath both layers, whose
+        // decode size never changes.
+        //
+        // Resizing the surface costs both full-size images their texture — not
+        // our doing and not avoidable from here; the window keeps rendering, and
+        // what shows through is its own `color`, a flat Theme.background where
+        // the wallpaper was. Measured at ~250ms of it on a scale change, which
+        // is the flash this exists to fill.
+        //
+        // Nothing here can hold a full-resolution texture across that, so this
+        // does the next best thing: it is small enough to come back immediately.
+        // 480px wide is about half a megabyte and decodes in single-digit
+        // milliseconds, against ~200ms for the real thing, so the gap shows a
+        // soft version of the right image instead of a dark rectangle. Stretched
+        // over a 4K screen it is visibly blurry, and that is fine — it is on
+        // screen for a fifth of a second, and being briefly soft reads as the
+        // wallpaper resolving rather than as the wallpaper disappearing.
+        //
+        // sourceSize is a constant, deliberately: binding it to the screen is
+        // exactly the mistake this whole file now avoids, and a fixed decode
+        // size means a resize gives it nothing to redo.
+        Image {
+            id: thumbnail
+
+            anchors.fill: parent
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            // The one image here that IS worth caching. It is tiny, it is wanted
+            // again on every resize, and the cost of re-reading it is the gap it
+            // exists to close.
+            cache: true
+            sourceSize.width: 480
+            source: Wallpapers.current ? `file://${Wallpapers.current}` : ""
+
+            // Below both layers, so it is only ever seen through them. A
+            // wallpaper change points this at the new file at once, while the
+            // outgoing full-size image is still opaque on top — so the swap
+            // stays a crossfade between the two big layers, and this is not part
+            // of it.
+            z: -1
+        }
+
         Image {
             id: first
 
@@ -124,10 +211,11 @@ PanelWindow {
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             cache: false
-            // Decode at the size we actually draw. Without this a 6000px JPEG is
-            // held in memory at full resolution for a 1080p output.
-            sourceSize.width: root.screen.width
-            sourceSize.height: root.screen.height
+            // sourceSize is deliberately NOT bound here — root.load() assigns it
+            // to the staging layer alone. It still does its original job of
+            // decoding at the size we draw rather than holding a 6000px JPEG at
+            // full resolution; what it no longer does is discard the image that
+            // is currently on screen. See load().
 
             // Whichever image is staging sits on top, because it is the one that
             // fades in over the other.
@@ -147,8 +235,7 @@ PanelWindow {
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             cache: false
-            sourceSize.width: root.screen.width
-            sourceSize.height: root.screen.height
+            // Not bound, for the reason on `first` above.
 
             z: root.showFirst ? 1 : 0
             opacity: 0

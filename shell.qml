@@ -18,6 +18,7 @@ import qs.modules.notifications
 import qs.modules.osd
 import qs.modules.translate
 import qs.modules.network
+import qs.modules.display
 import qs.modules.clipboard
 import qs.modules.switcher
 import qs.modules.keybinds
@@ -350,6 +351,13 @@ ShellRoot {
                         anchors.topMargin: scope.topDock
                     }
 
+                    ScalingPopout {
+                        id: scalingPopout
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.topMargin: scope.topDock
+                    }
+
                     ClipboardPanel {
                         id: clipboardPanel
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -408,6 +416,9 @@ ShellRoot {
                     }
                     Region {
                         item: ethernetPopout.visible ? ethernetPopout : null
+                    }
+                    Region {
+                        item: scalingPopout.visible ? scalingPopout : null
                     }
                     Region {
                         item: clipboardPanel.visible ? clipboardPanel : null
@@ -554,6 +565,46 @@ ShellRoot {
         target: "ethernet"
         function toggle(): void {
             ShellState.toggle("ethernet");
+        }
+    }
+
+    // Scaling gets more than a toggle. The panel is the ordinary way in, but a
+    // desktop at the wrong size is the one case where the shell's own UI is the
+    // thing that is hard to use — so stepping is bindable to a key, the way
+    // Omarchy does it, and `set` is there for a script that knows what it wants.
+    IpcHandler {
+        target: "scaling"
+
+        function toggle(): void {
+            ShellState.toggle("scaling");
+        }
+
+        function up(): void {
+            Display.step(1);
+        }
+
+        function down(): void {
+            Display.step(-1);
+        }
+
+        function set(scale: string): void {
+            const value = Number(scale);
+            if (!isFinite(value) || value <= 0) {
+                console.warn("grootshell: not a scale:", scale);
+                return;
+            }
+            Display.apply(value);
+        }
+
+        // What is on screen, and what the current resolution is remembered as.
+        // Two numbers because they can legitimately differ — setting a scale
+        // remembers it, but a hand-edited file or a forgotten entry means the
+        // live one is the only one you can trust.
+        function status(): string {
+            if (!Display.known)
+                return "unknown";
+            const saved = Display.scaleFor(Display.resolution);
+            return `${Display.resolution} @ ${Display.format(Display.scale)}x (remembered: ${saved > 0 ? Display.format(saved) + "x" : "none"})`;
         }
     }
 

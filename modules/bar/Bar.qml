@@ -247,6 +247,27 @@ Item {
                 }
 
 
+                // How big the desktop is on whatever is looking at it.
+                //
+                // Up here rather than only in the settings panel because the
+                // resolution changes without anybody asking — Sunshine
+                // retargets the output on connect — so this is reached for on
+                // arrival at a new client, which is exactly what the tray is
+                // for. Tinted when the desktop is scaled, so a shell that looks
+                // unexpectedly large says why.
+                Icon {
+                    text: "aspect_ratio"
+                    color: Display.scale !== 1 ? Theme.accent : Theme.textSecondary
+                    size: Appearance.font.size.lg
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: ShellState.toggle("scaling")
+                    }
+                }
+
                 Icon {
                     text: Volume.icon()
                     color: Volume.muted ? Theme.error : Theme.textSecondary

@@ -61,6 +61,18 @@ click-to-dismiss, and a centre that holds what you missed.
 **Side panels** that *reserve* screen edge rather than covering it, so tiled
 windows resize around them and animate back when they close.
 
+**Display scaling, remembered per resolution.** On a streamed host the
+resolution is not a setting anybody chose — it is whatever the client asked for
+on connect — so a single UI scale is wrong for every client but one. The tray
+widget sets the compositor's scale for the resolution on screen now and
+remembers it, and connecting again at that size brings it back. 1440p from a
+desk and 4K from a sofa each keep their own answer, as does whatever odd
+geometry a laptop with a notch or a phone reports.
+
+The map is a plain JSON file, so the scale is applied on connect by the same
+hook that sets the mode rather than by this shell — the desktop comes up the
+right size whether or not the shell is running.
+
 **Also:** an application launcher with command and calculator prefixes, a
 clipboard history browser, a translation panel, a wifi popout, a volume readout
 on the right edge that opens on hover, a keybind cheatsheet generated from the
@@ -210,7 +222,7 @@ grootshell-ipc call launcher toggle
 grootshell-ipc show                     # every target and function, live
 ```
 
-**[KEYBINDS.md](KEYBINDS.md)** is the full version: all fifteen IPC targets,
+**[KEYBINDS.md](KEYBINDS.md)** is the full version: all sixteen IPC targets,
 a set of default binds to paste into `hyprland.conf`.
 
 ## Configuration
