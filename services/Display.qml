@@ -38,6 +38,11 @@ import Quickshell.Hyprland
 // game mode lives in a script — groot has no local console, so nothing may
 // depend on this shell being alive to make the machine usable.
 //
+// The scales file is not the only thing crossing that boundary any more. Steam
+// has to be told the scale too and only reads it at startup, so picking one here
+// also pokes `steam-rescale` — see the note beside it further down. Same
+// arrangement: a name on PATH, optional, owned by the other repo.
+//
 // A file of its own rather than a key in state.json, which is a JsonAdapter:
 // assigning a whole object through a var property on one does not reliably
 // persist (see the same note in services/Settings.qml), and a foreign script
@@ -300,11 +305,59 @@ Singleton {
         // makes a click feel like it missed.
         root.scale = value;
         settle.restart();
+        steamSettle.restart();
     }
 
     Process {
         id: apply
         running: false
+    }
+
+    // --- Keeping Steam in step ----------------------------------------------
+    //
+    // Steam reads GDK_SCALE once at startup and is resident on groot, so a scale
+    // picked here leaves its UI at the old size indefinitely. The compositor
+    // hands X clients device pixels rather than logical ones
+    // (xwayland:force_zero_scaling), which is what keeps Steam's text sharp
+    // through the stream — but it also means Steam draws at 1x on a 4K canvas
+    // unless that variable says otherwise.
+    //
+    // Sunshine's connect hook already covers a Moonlight client turning up at a
+    // new resolution. This covers the other way the scale moves: somebody
+    // choosing one here, which nothing else watches.
+    //
+    // steam-rescale comes from the nixos repo and is called by bare name on
+    // PATH, for the same reason the scales file is plain JSON on a stable path:
+    // neither repo owns the other. It decides for itself whether a restart is
+    // warranted — it compares the running Steam's GDK_SCALE against the live
+    // output, and does nothing when they already agree or when a game is up —
+    // so this side only has to say that the scale moved.
+    //
+    // Absent, it is skipped in silence. A machine with no Steam, or this shell
+    // run somewhere other than groot, should not report a missing tool it has no
+    // reason to carry.
+    Process {
+        id: steamRescale
+        running: false
+        command: ["sh", "-c", "command -v steam-rescale >/dev/null 2>&1 && exec steam-rescale"]
+    }
+
+    // Longer than `settle`, and restarted on every apply, so stepping along the
+    // row of presets asks once when you stop rather than at each stop on the
+    // way.
+    //
+    // Most steps ask for nothing anyway: steam-rescale rounds the scale UP to an
+    // integer, because GDK_SCALE takes no other kind, so 1.5 and 1.75 are both
+    // 2 and only crossing a whole number changes the answer. The debounce is for
+    // the case that does cross one — 1.5 down to 1 and back while you make your
+    // mind up, which would otherwise shut Steam down twice.
+    Timer {
+        id: steamSettle
+        interval: 2000
+        onTriggered: {
+            if (!steamRescale.running)
+                steamRescale.running = true;
+        }
     }
 
     // Move one option up or down the list.
