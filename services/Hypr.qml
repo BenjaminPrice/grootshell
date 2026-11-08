@@ -175,6 +175,35 @@ Singleton {
         onTriggered: root.refreshGeometry()
     }
 
+    // An XWayland window with no class and no title is plumbing, not an app:
+    // in practice xembedsniproxy's off-screen container for a Wine tray icon,
+    // which Hyprland lists like any window and the workspace strip and
+    // switchers then drew as a blank second app beside Battle.net.
+    //
+    // Judged from the IPC object only once it has been filled in — it arrives
+    // empty on a fresh toplevel (see modules/bar/Workspaces.qml) — so a real
+    // window is never hidden just for being new.
+    function isPlumbing(toplevel): bool {
+        if (toplevel?.wayland?.appId)
+            return false;
+        const ipc = toplevel?.lastIpcObject;
+        return ipc?.xwayland === true && !ipc["class"] && !ipc.initialClass && !ipc.title;
+    }
+
+    // Quickshell fills lastIpcObject in at startup and on reconnect, never when
+    // a window opens, so a container created later — Battle.net docking its icon
+    // after the shell started — stayed blank and isPlumbing() could not tell
+    // what it was. Ask for a refresh when one appears; the openwindow event
+    // already says it has no class, so ordinary windows cost nothing.
+    Connections {
+        target: Hyprland
+
+        function onRawEvent(event: HyprlandEvent): void {
+            if (event.name === "openwindow" && !event.data.split(",")[2])
+                Hyprland.refreshToplevels();
+        }
+    }
+
     // Raw Lua, for anything without a wrapper below.
     function lua(expr: string): void {
         Hyprland.dispatch(expr);

@@ -268,4 +268,16 @@ PanelWindow {
             root.showFirst = !root.showFirst;
         }
     }
+
+    // A click on the bare desktop while an app-drawn tray menu is open closes
+    // it, as any menu closes on an outside click. Nothing else notices that
+    // click: the wallpaper takes no focus, so focus never leaves the menu. Only
+    // live while there is a menu, so the desktop is otherwise exactly as inert
+    // as it was. See services/TrayMenu.qml.
+    MouseArea {
+        anchors.fill: parent
+        enabled: TrayMenu.address !== ""
+        acceptedButtons: Qt.AllButtons
+        onPressed: TrayMenu.close()
+    }
 }

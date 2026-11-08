@@ -65,7 +65,7 @@ Item {
         const out = [];
         for (let i = 0; i < all.length; i++) {
             const t = all[i];
-            if ((t?.workspace?.id ?? -1) === id)
+            if ((t?.workspace?.id ?? -1) === id && !Hypr.isPlumbing(t))
                 out.push(t);
         }
         return out;

@@ -175,6 +175,29 @@ Item {
                                 return;
                             }
 
+                            // No D-Bus menu means the item draws its own, on
+                            // its ContextMenu call — which Quickshell has no way
+                            // to send. display() just logs "No menu present"
+                            // and returns. These are XEmbed icons (Wine/Proton:
+                            // Battle.net) relayed by xembedsniproxy, and groot's
+                            // build of it maps SecondaryActivate to a right
+                            // click for exactly this case (see the dotfiles'
+                            // pkgs/xembed-sni-proxy.nix). Upstream's maps it to
+                            // a middle click, which is harmless here.
+                            //
+                            // The app's menu is then a plain window, which
+                            // TrayMenu closes on an outside click. A second
+                            // right click closes it too, as menus do.
+                            if (!trayItem.modelData.hasMenu) {
+                                if (TrayMenu.address) {
+                                    TrayMenu.close();
+                                    return;
+                                }
+                                TrayMenu.expect();
+                                trayItem.modelData.secondaryActivate();
+                                return;
+                            }
+
                             // Coordinates are relative to the WINDOW, not to
                             // this item. Passing local ones put every menu at
                             // the window's top-left corner regardless of which

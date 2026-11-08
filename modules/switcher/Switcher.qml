@@ -33,7 +33,7 @@ Panel {
             return [];
         return Hyprland.toplevels.values.filter(t => {
             const ws = t.workspace?.id ?? 0;
-            return ws >= 1 && ws <= Config.bar.workspaces;
+            return ws >= 1 && ws <= Config.bar.workspaces && !Hypr.isPlumbing(t);
         });
     }
 
