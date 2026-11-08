@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 
 // A tray menu the APP draws, as an ordinary window — and closing it like a menu.
 //
@@ -13,7 +14,7 @@ import Quickshell.Hyprland
 // closes it when you click elsewhere — focus leaving it changes nothing, so it
 // stayed open until Escape.
 //
-// So the shell closes it. The bar calls expect() just before asking for the
+// So the shell closes it. request() notes the time just before asking for the
 // menu, and the first window Hyprland opens shortly after is taken to be it —
 // nothing else marks it: Battle.net's menu is titled "Battle.net", the same as
 // its main window. It is then closed, the way Hyprland closes any window, when
@@ -47,6 +48,48 @@ Singleton {
     function expect(): void {
         root.expectedAt = Date.now();
         root.adopted = "";
+    }
+
+    // Ask `item` (a SystemTrayItem with no D-Bus menu) for its own menu, at the
+    // icon drawn by `visual` on `screen`.
+    //
+    // Through scripts/tray-context-menu.sh rather than Quickshell: only a
+    // ContextMenu call can say where the icon is, and Wine opens the menu where
+    // it believes the icon to be — so this is what puts the menu under the icon
+    // rather than against the screen edge. Quickshell has no such call and does
+    // not expose the item's D-Bus address, which the script finds instead.
+    //
+    // X root coordinates are DEVICE pixels (Hyprland's xwayland
+    // force_zero_scaling), so the logical position is scaled by the monitor's.
+    // The point is the icon's bottom centre, the corner the menu hangs from.
+    //
+    // If the script fails, secondaryActivate() — which groot's xembedsniproxy
+    // turns into a right click at its parking spot, top-right — still gets a
+    // menu up, just not under the icon.
+    function request(item, visual: Item, screen: ShellScreen): void {
+        root.expect();
+        const monitor = Hyprland.monitorFor(screen);
+        const scale = monitor?.scale ?? 1;
+        const p = visual.mapToItem(null, visual.width / 2, visual.height);
+        const x = Math.round(((monitor?.x ?? 0) + p.x) * scale);
+        const y = Math.round(((monitor?.y ?? 0) + p.y) * scale);
+        root.fallbackItem = item;
+        helper.command = [`${Quickshell.shellDir}/scripts/tray-context-menu.sh`, item.id, String(x), String(y)];
+        helper.running = true;
+    }
+
+    property var fallbackItem: null
+
+    Process {
+        id: helper
+
+        onExited: code => {
+            if (code !== 0 && root.fallbackItem) {
+                console.warn("grootshell: tray-context-menu failed, falling back to secondaryActivate");
+                root.fallbackItem.secondaryActivate();
+            }
+            root.fallbackItem = null;
+        }
     }
 
     function close(): void {

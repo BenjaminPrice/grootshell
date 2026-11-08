@@ -179,11 +179,9 @@ Item {
                             // its ContextMenu call — which Quickshell has no way
                             // to send. display() just logs "No menu present"
                             // and returns. These are XEmbed icons (Wine/Proton:
-                            // Battle.net) relayed by xembedsniproxy, and groot's
-                            // build of it maps SecondaryActivate to a right
-                            // click for exactly this case (see the dotfiles'
-                            // pkgs/xembed-sni-proxy.nix). Upstream's maps it to
-                            // a middle click, which is harmless here.
+                            // Battle.net) relayed by xembedsniproxy. TrayMenu
+                            // sends ContextMenu itself, with this icon's
+                            // position so the menu opens under it.
                             //
                             // The app's menu is then a plain window, which
                             // TrayMenu closes on an outside click. A second
@@ -193,8 +191,7 @@ Item {
                                     TrayMenu.close();
                                     return;
                                 }
-                                TrayMenu.expect();
-                                trayItem.modelData.secondaryActivate();
+                                TrayMenu.request(trayItem.modelData, trayItem, root.screen);
                                 return;
                             }
 
